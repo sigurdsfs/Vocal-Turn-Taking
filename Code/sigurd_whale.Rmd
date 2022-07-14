@@ -1,0 +1,61 @@
+---
+title: "Whale Try"
+author: "Sigurd Fyhn Sørensen"
+date: '2022-06-17'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(rethinking)
+library(rstan)
+```
+
+```{r}
+df_whale <- read_csv("turnTakingData Whale Example/PilotWhales_jensen.csv")
+```
+### Plot and investigate the Data
+```{r}
+pacman::p_load("lubridate")
+
+ggplot(df_whale, aes(xmin = StartTime, xmax = StartTime + Duration )) + geom_rect()
+```
+# Test overlap
+```{r}
+df_whale <- read_csv("turnTakingData Whale Example/PilotWhales_jensen.csv")
+d_list <- list()
+Start <- Sys.time();
+  
+for (i in seq(1000)){
+  #print(i)
+    d_list[[i]] <- RotateData(d, threshold = threshold, delay = delay) %>%
+      mutate(Rotation = i)
+}
+dRotated <- do.call("rbind", d_list)
+End <- Sys.time() # Time to run
+
+write_csv(dRotated, "dRotated.csv")
+```
+
+```{r}
+dRotated <- read_csv("dRotated.csv")
+```
+
+
+## Permutation
+```{r}
+dens(df_whale$BoutLatency)
+
+df_whale %>% 
+  filter(!is.na(BoutLatency)) %>% 
+  summarise(sum(BoutLatency > 0 )/length(BoutLatency))
+
+
+t.test(df_whale$BoutLatency , mu = 0)
+```
+
+

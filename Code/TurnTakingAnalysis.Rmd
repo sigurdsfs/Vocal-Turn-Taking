@@ -1,0 +1,731 @@
+---
+title: "PilotWhalesTurnTakingAnalysis"
+author: "ERHK_RF"
+date: "10/5/2019"
+output: html_document
+---
+
+```{r setup, include =FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysis of pilot whales turn taking
+
+Goals of the script:
+* Preprocess data
+* Assess presence of turn-taking via rotation analysis
+
+
+# TO DO
+## Report the rotated analysis / hyp testing in outcome scale
+## Reset and inhibition hypotheses on full dataset
+## Implement coupled oscillators
+## Poisson processes
+## ??Permutation test (replacing one whale from a group with a whale from another)
+## ?? Permutation test with removal of 1 individual
+
+
+
+```{r Load libraries and data}
+## Load the libraries
+pacman::p_load(tidyverse,
+               brms,
+               here)
+```
+
+
+```{r Load libraries and data}
+# Define the threshold below which a call is a response call 
+threshold <- 100 # 100 is a result from a mixture gaussian model from Frants
+# Define max delay (in seconds) for rotation test
+delay <- 20
+
+## Function to preprocess the data
+CleanData <- function(filename =filename, threshold=threshold){
+  
+  # Load dataset
+  d <- read_delim(filename, "\t") %>% 
+  rename( ## More meaningful names to me
+    StartTime = Time,
+    WhaleID = Source_code,
+    WhaleType = Source_type) %>% 
+  mutate( # Calculating some additional variables 
+    EndTime = StartTime + Duration, 
+    Latency = StartTime - lag(EndTime, 1),
+    DurationPrev = lag(Duration,1),
+    CallType = ifelse(Latency < threshold,"ResponseCall","InitiationCall"),
+    Age = ifelse(WhaleType == "Juvenile", 1, ifelse(WhaleType == "Indeterminate",2,3))
+  )
+  
+  ### Identifying bouts by identifying initiating calls (calls with > threshold of distance from previous calls)
+  
+  b <- 1 # initializing bout counter
+  d$bout[1] <- 1 # first data point belongs to first bout 
+  
+  for (n in c(2:nrow(d))){
+    
+    if (d$Latency[n] > threshold){
+      b <- b + 1 # if the distance from previous call is higher than the threshold, change bout
+      }
+    d$bout[n] <- b # add bout counter value
+  }
+  
+  ## Remove duplicates due to multiple recording devices
+  dups =NULL
+  for (i in 2:nrow(d)){
+    
+    if (d$bout[i]==d$bout[i-1] & d$WhaleID[i]==d$WhaleID[i-1] & d$StartTime[i] - d$StartTime[i-1] < 1 & d$Focal[i]!=d$Focal[i-1]){
+      dups <- append(dups,i)
+    }
+    
+  }
+  
+  if (length(dups)){
+    d <- d[-dups,]
+  }
+  
+  d <- d %>% 
+  mutate(
+    Latency = StartTime - lag(EndTime, 1),
+    )
+  
+  d_Real <- d
+  
+  for (i in unique(d_Real$bout)){
+    ## Let's reset the timer within each bout
+    BoutReset <- d_Real$StartTime[d_Real$bout==i][1]
+    d_Real$BoutStartTime[d_Real$bout==i] <- d_Real$StartTime[d_Real$bout==i] - BoutReset
+    d_Real$BoutEndTime[d_Real$bout==i] <- d_Real$EndTime[d_Real$bout==i] - BoutReset
+  }
+  
+  d_Real <- d_Real %>% mutate(
+    BoutLatency = BoutStartTime - lag(BoutEndTime, 1),
+  )
+  
+  d_Real$Type <- "Real"
+  
+  d_Real$BoutLatency[d_Real$BoutStartTime == 0]<-NA
+  
+  return(d_Real)
+}
+
+RotateData <- function(d = data, threshold = threshold, delay = delay) {
+
+  # We create rotated datasets
+  ## for each whale but the first we add a random n of seconds to the timeseries of starting points
+  ## we take the shifted timeseries which are now longer than the bout and we cut and paste the sticking out bit to the beginning
+  
+  for (i in unique(d$bout)){
+    
+    ## Let's reset the timer within each bout
+    BoutReset <- d$StartTime[d$bout==i][1]
+    d$BoutStartTime[d$bout==i] <- d$StartTime[d$bout==i] - BoutReset
+    d$BoutEndTime[d$bout==i] <- d$EndTime[d$bout==i] - BoutReset
+    
+    ## identify all callers but the first
+    Callers <- unique(d$WhaleID[d$bout==i])
+    RotatedCallers <- Callers[-1]
+    RotatedDelays <- runif(length(RotatedCallers), min= 1, max= delay)
+    
+    ## Last call
+    LastCall <- nrow(d[d$bout==i,])
+    BoutEnd <- d$BoutEndTime[d$bout==i][LastCall]
+    
+    if (length(Callers)>1){
+      
+      for (n in seq(length(RotatedCallers))){
+        
+        rc <- RotatedCallers[n]
+        
+        d$BoutStartTime[d$bout==i & d$WhaleID == rc] <- d$BoutStartTime[d$bout==i & d$WhaleID == rc] + RotatedDelays[n]
+        d$BoutEndTime[d$bout==i & d$WhaleID == rc] <- d$BoutEndTime[d$bout==i & d$WhaleID == rc] + RotatedDelays[n]
+        
+        d$BoutStartTime[d$bout==i & d$WhaleID == rc & d$BoutStartTime > BoutEnd] <- d$BoutStartTime[d$bout==i & d$WhaleID == rc & d$BoutStartTime > BoutEnd] - BoutEnd
+        
+        d$BoutEndTime[d$bout==i & d$WhaleID == rc & d$BoutEndTime > BoutEnd] <- d$BoutStartTime[d$bout==i & d$WhaleID == rc & d$BoutEndTime > BoutEnd] + d$Duration[d$bout==i & d$WhaleID == rc & d$BoutEndTime > BoutEnd ]
+        
+      }
+      
+    }
+    
+  }
+  
+  d <-d[order(d$bout, d$BoutStartTime),]
+  
+  d <- d %>% mutate(
+    BoutLatency = BoutStartTime - lag(BoutEndTime, 1),
+  )
+   d$BoutLatency[d$BoutStartTime == 0]<-NA
+  
+  d$Type <- "Rotated"
+  
+  d <- d[order(d$StartTime),]
+  d <- d %>% 
+    mutate(
+      Latency = StartTime - lag(EndTime, 1),
+    )
+  
+ 
+  
+  return(d)
+}
+```
+
+
+```{r Load libraries and data}
+## Load and preprocess the data
+## Now with one dataset
+d1 <- CleanData(
+  filename = "data/gm15_257_call_table.txt",
+  threshold = threshold) %>%
+  mutate(
+    Group = "G1",
+    ID = paste0("d1_",WhaleID))
+
+d2 <- CleanData(
+  filename = "data/gm12_224_call_table.txt",
+  threshold = threshold) %>%
+  mutate(
+    Group = "G2",
+    ID = paste0("d2_",WhaleID))
+
+d3 <- CleanData(
+  filename = "data/gm12_207_call_table.txt",
+  threshold = threshold) %>%
+  mutate(
+    Group = "G3",
+    ID = paste0("d3_",WhaleID))
+```
+
+
+```{r Load libraries and data}
+d <- read_csv("PilotWhales_jensen.csv")
+Start <- Sys.time()
+for (i in seq(1000)){
+  print(i)
+  
+    
+    d <- RotateData(d, threshold = threshold, delay = delay) %>%
+      mutate(Rotation = i)
+    
+    if (exists("dRotated")){dRotated = rbind(dRotated,d)} else {dRotated = d }
+
+}
+End <- Sys.time()
+End - Start # Time to run
+
+
+write_csv(dRotated, "dRotated.csv")
+dd <- rbind(d, subset(dRotated, select=-Rotation))
+```
+
+```{r}
+d <- read_csv("PilotWhales_jensen.csv")
+d_list <- list()
+Start <- Sys.time();
+  
+for (i in seq(1000)){
+  #print(i)
+    d_list[[i]] <- RotateData(d, threshold = threshold, delay = delay) %>%
+      mutate(Rotation = i)
+}
+dRotated <- do.call("rbind", d_list)
+End <- Sys.time() # Time to run
+
+write_csv(dRotated, "dRotated.csv")
+```
+
+
+
+## Testing for change in overlapping in the rotated dataset
+```{r}
+dRotated <- read_csv("dRotated.csv")
+```
+
+
+```{r}
+# We generate a few different performance measures before comparing how likely real data are in the rotated distribution
+### N of overlappings by group
+### Duration of overlapping
+### Fraction of the call overlapping
+
+RotatedStats <- dRotated %>% group_by(Rotation, Group) %>% #, WhaleID
+  summarize(
+    OverlappingN = sum(BoutLatency < 0.1, na.rm=T),
+    OverlappingProb = sum(BoutLatency < 0.1, na.rm=T)/n(),
+    OverlappingDuration = sum(ifelse(BoutLatency < 0.1, abs(BoutLatency), 0), na.rm=T),
+    OverlappingFraction = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, NA), na.rm=T),
+    OverlappingFraction2 = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, 0), na.rm=T)
+  )
+
+Stats <- dRotated %>% group_by(Group) %>% #, WhaleID
+  summarize(
+    OverlappingN = sum(BoutLatency < 0.1, na.rm=T),
+    OverlappingProb = sum(BoutLatency < 0.1, na.rm=T)/n(),
+    OverlappingDuration = sum(ifelse(BoutLatency < 0.1, abs(BoutLatency), 0), na.rm=T),
+    OverlappingFraction = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, NA), na.rm=T),
+    OverlappingFraction2 = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, 0), na.rm=T)
+  )
+
+ss <- r
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G1"] > Stats$OverlappingProb[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G2"] > Stats$OverlappingProb[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G3"] > Stats$OverlappingProb[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G1"] > Stats$OverlappingDuration[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G2"] > Stats$OverlappingDuration[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G3"] > Stats$OverlappingDuration[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G1"] > Stats$OverlappingFraction2[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G2"] > Stats$OverlappingFraction2[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G3"] > Stats$OverlappingFraction2[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G1"] > Stats$OverlappingFraction[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G2"] > Stats$OverlappingFraction[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G3"] > Stats$OverlappingFraction[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+```
+
+## RESET Hypothesis:
+### extract intervals btw consecutive calls within bout by the same individual *tagging the individual*
+### extract intervals btw consecutive calls within bout by different individuals *tagging the second individual*
+### Compare the distributions. Reset says they are the same
+
+```{r}
+d$Within <- NA
+
+for (i in 2:nrow(d)){
+  
+  if (d$bout[i] == d$bout[i-1] & d$ID[i] != d$ID[i-1]){
+      d$Within[i] = 0
+  } else if ((d$bout[i] == d$bout[i-1] & d$ID[i] == d$ID[i-1])){
+      d$Within[i] = 1
+    }
+    
+}
+
+d$Within[d$BoutStartTime == 0] <- NA
+d$Within <- as.factor(d$Within)
+d$ResetTime <- d$BoutLatency + lag(d$Duration,1)
+  
+ggplot(d,aes(BoutLatency)) + 
+  geom_density(aes(group = ID, fill = ID), alpha= 0.2) +
+  facet_wrap(.~ Within)
+
+ggplot(d,aes(BoutLatency)) + 
+  geom_density(aes(group = Within, fill = Within), alpha= 0.2) +
+  facet_wrap(.~ ID)
+
+ggplot(d,aes(BoutLatency)) + 
+  geom_density(aes(group = Within, fill = Within), alpha= 0.2)
+
+ggplot(d,aes(ResetTime)) + 
+  geom_density(aes(group = WhaleID, fill = WhaleID), alpha= 0.2) +
+  facet_wrap(.~ Within)
+
+ggplot(d,aes(ResetTime)) + 
+  geom_density(aes(group = Within, fill = Within), alpha= 0.2) +
+  facet_wrap(.~ WhaleID)
+
+ggplot(d,aes(ResetTime)) + 
+  geom_density(aes(group = Within, fill = Within), alpha= 0.2)
+
+d %>% group_by(Within) %>% summarize(mean(ResetTime, na.rm=T))
+
+dL <- subset(d, !is.na(BoutLatency) & !is.na(Within) & !is.na(Group) & !is.na(ID) & CallType != "InitiationCall")
+
+# Define formula
+BoutEx_f <- bf(BoutLatency ~ 0 + Within + (0 + Within | Group) + (0 + Within | ID),
+     beta ~ 0 + Within + (0 + Within | Group) + (0 + Within | ID)# + (0 + Type | bout)
+)
+
+# Identify parameters for exgaussian
+get_prior(
+  BoutEx_f,
+  data = d,
+  family = exgaussian)
+
+# Define priors
+priorEx <- c(
+  prior(normal(0,5), class = b),
+  prior(normal(0,1), class = sigma),
+  prior(normal(0,.5), class = sd),
+  prior(normal(0,2), class = sd, group = Group),
+  prior(normal(0,2), class = b, dpar = beta),
+  prior(normal(0,1), class = sd, dpar = beta),
+  prior(normal(0,0.3), class = sd, dpar = beta, group=ID),
+  prior(lkj(5), class = cor)
+)
+
+# Check prior predictions
+ResetLatencyEx_m0 <- brm(
+  BoutEx_f,
+  data = dL ,
+  family = exgaussian,
+  prior = priorEx,
+  sample_prior = "only",
+  file = here("models","ResetLatencyEx_m0"),
+  chains = 2,
+  cores = 2,
+  backend = "cmdstanr",
+  threads = threading(2)
+  )
+pp_check(ResetLatencyEx_m0,ndraws = 100)
+
+
+# Run the model
+ResetLatencyEx_m <- brm(
+  BoutEx_f,
+  data = dL,
+  family = exgaussian,
+  prior = priorEx,
+  sample_prior = T,
+  chains = 2,
+  cores = 2,
+  iter = 4000,
+  file = here("models","ResetLatencyEx_m"),
+  backend = "cmdstanr",
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.99,
+    max_treedepth = 20
+  )
+  )
+pp_check(ResetLatencyEx_m,ndraws = 100)
+
+## Check prior/posterior update
+
+plot(hypothesis(ResetLatencyEx_m,"Within0 < 0"))
+plot(hypothesis(ResetLatencyEx_m,"Within1 < 0"))
+plot(hypothesis(ResetLatencyEx_m,"beta_Within0 < 0"))
+plot(hypothesis(ResetLatencyEx_m,"beta_Within1 < 0"))
+plot(hypothesis(ResetLatencyEx_m,"sd_Group__Within0 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_Group__Within1 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_Group__beta_Within0 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_Group__beta_Within1 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_ID__Within0 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_ID__Within1 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_ID__beta_Within0 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sd_ID__beta_Within1 < 0", class = ""))
+plot(hypothesis(ResetLatencyEx_m,"sigma < 0", class = ""))
+
+# check summary
+summary(ResetLatencyEx_m)
+
+dL$Preds <- predict(ResetLatencyEx_m)[,1]
+
+hypothesis(ResetLatencyEx_m,"Within1-Within0 = 0")
+hypothesis(ResetLatencyEx_m,"Within1-Within0 = 0", scope = "coef", group = "Group")
+hypothesis(ResetLatencyEx_m,"Within1-Within0 = 0", scope = "coef", group = "ID")
+
+hypothesis(ResetLatencyEx_m,"b_beta_Within1-b_beta_Within0 = 0", class = "")
+hypothesis(ResetLatencyEx_m,"beta_Within1-beta_Within0 = 0", class = "b", scope = "coef", group = "Group")
+
+plot(hypothesis(ResetLatencyEx_m,"Within1-Within0 = 0"))
+plot(hypothesis(ResetLatencyEx_m,"b_beta_Within1-b_beta_Within0 = 0", class = ""))
+
+
+
+  
+```
+
+
+
+## INHIBITION hypothesis
+## we exchanged the pairs of callers from different sessions, which generated call exchanges with occasional interruptions (Figure 2B). 
+### We then removed the calls that were interrupted (calls with later onsets in the interruptions)
+### we then measured the interval distribution between the calls on the simulated sequence (blue line) and compared it to the real interval distribution (green line). 
+## we remove the calls that were interrupted
+## measure the interval distribution in surrogate and in real pairs
+```{r}
+
+for (g in unique(d$Group)) {
+  
+  for (b in unique(d$bout[d$Group == g])) {
+  
+    t <- subset(d, Group == g & bout == b)
+    
+    if (sum(t$BoutLatency < 0.1, na.rm = T) > 0) {
+      if (exists("OverlappingBouts")) {
+        OverlappingBouts <- rbind(OverlappingBouts, t)
+      } else {
+        OverlappingBouts = t
+      }
+    }
+  }
+}
+
+OverlappingBoutsSurrogate <- subset(OverlappingBouts, BoutLatency > 0.1 | is.na(BoutLatency)) 
+
+OverlappingBoutsSurrogate <- OverlappingBoutsSurrogate %>% mutate(
+    BoutLatency = BoutStartTime - lag(BoutEndTime, 1),
+  )
+OverlappingBoutsSurrogate$BoutLatency[OverlappingBoutsSurrogate$BoutStartTime == 0] <- NA
+
+OverlappingBouts$Type <- "Real"
+OverlappingBoutsSurrogate$Type <- "Surrogate"
+
+dO <- rbind(OverlappingBouts, OverlappingBoutsSurrogate)
+
+ggplot(OverlappingBouts, aes(BoutLatency)) + geom_density()
+
+ggplot(OverlappingBoutsSurrogate, aes(BoutLatency)) + geom_density()
+
+
+# Define formula
+BoutEx_f <- bf(BoutLatency ~ 0 + Type + (0 + Type | Group) + (0 + Type | ID),
+     beta ~ 0 + Type + (0 + Type | Group) + (0 + Type | ID)# + (0 + Type | bout)
+)
+
+# Identify parameters for exgaussian
+get_prior(
+  BoutEx_f,
+  data = dO,
+  family = exgaussian)
+
+# Define priors
+priorEx <- c(
+  prior(normal(0,5), class = b),
+  prior(normal(0,1), class = sigma),
+  prior(normal(0,.5), class = sd),
+  prior(normal(0,2), class = sd, group = Group),
+  prior(normal(0,2), class = b, dpar = beta),
+  prior(normal(0,1), class = sd, dpar = beta),
+  prior(normal(0,0.3), class = sd, dpar = beta, group=ID),
+  prior(lkj(5), class = cor)
+)
+
+# Check prior predictions
+InhibitionLatencyEx_m <- brm(
+  BoutEx_f,
+  data = dO ,
+  family = exgaussian,
+  prior = priorEx,
+  sample_prior = T,
+  #file = here("models","RotatedLatencyEx_m0"),
+  chains = 2,
+  cores = 2,
+  backend = "cmdstanr",
+  threads = threading(2),
+  control = list(adapt_delta= 0.99, max_treedepth=20)
+  )
+pp_check(InhibitionLatencyEx_m,ndraws = 100)
+
+```
+
+
+
+## COUPLED OSCILLATORS HYPOTHESES
+### 1. PRESENCE OF PERIODIC COUPLINGS
+#### CONSISTENT WITHIN CALLER INTERCALL INTERVAL FOR CALLER N
+#### NON-OVERLAPPING AND CONSISTENT INTERCALLER INTERCALL INTERVALS FOR OTHER CALLERS
+
+#### TAKE ALL CALLERS BUT THE FIRST, MEASURE INTERCALL INTERVALS FROM FIRST CALLER'S FIRST CALL
+####                                 MEASURE INTERCALL INTERVALS FROM FIRST CALLER'S SECOND CALL (ETC)
+#### MEASURE THE CROSS-CORRELATION BETWEEN CALL TIME SERIES OF THE TWO MARMOSETS
+
+
+## Calculate the intercall intervals
+
+```{r}
+InterCallsIntervals <- NULL
+
+for (b in unique(d$bout)){
+  
+  Caller1 <- d$WhaleID[d$bout==b][1]
+  Calls1 <- d$BoutStartTime[d$bout==b & d$WhaleID == Caller1]
+  
+  if (length(d$WhaleID[d$bout==b & d$WhaleID != Caller1]>0)){
+    
+    for (call in Calls1){
+      
+      tempIntervals <- d$BoutStartTime[d$bout==b & d$WhaleID != Caller1] - call
+      temp1Caller <- Caller1
+      tempCaller <- d$WhaleID[d$bout==b & d$WhaleID != Caller1]
+      Bout <- d$bout[d$bout==b & d$WhaleID != Caller1]
+      FirstCall <- which(Calls1==call)
+      tempData <- data.frame(Intervals = tempIntervals, FirstCaller= temp1Caller, Caller=tempCaller, Bout = Bout, FirstCall=FirstCall)
+      
+      tempData <- subset(tempData, Intervals > 0)
+      
+      if (exists("InterCallsIntervals")){
+        InterCallsIntervals = rbind(InterCallsIntervals,tempData)
+      } else {
+        InterCallsIntervals = tempData
+      }
+      
+    }
+  }
+}
+
+ggplot(InterCallsIntervals, aes(Intervals)) + geom_density()
+ggplot(subset(InterCallsIntervals, FirstCall== 1), aes(Intervals)) + geom_density()
+
+boutlength = NULL
+for (b in unique(d$bout)){
+  boutlength = append(boutlength,max(d$BoutEndTime[d$bout==b]))
+}
+
+
+```
+
+# Statistical analysis
+We use a exgaussian distribution to describe the latencies between calls
+
+
+```{r}
+dL <- subset(dd, !is.na(BoutLatency) & !is.na(Type) & !is.na(Group) & !is.na(ID) & CallType != "InitiationCall")
+
+BoutEx_f <- bf(BoutLatency ~ 0 + Type + (0 + Type | Group) + (0 + Type | ID),
+     beta ~ 0 + Type + (0 + Type | Group) + (0 + Type | ID)# + (0 + Type | bout)
+)
+
+# Identify parameters for exgaussian
+get_prior(
+  BoutEx_f,
+  data = d,
+  family = exgaussian)
+
+# Define priors
+priorEx <- c(
+  prior(normal(0,5), class = b),
+  prior(normal(0,1), class = sigma),
+  prior(normal(0,.5), class = sd),
+  prior(normal(0,2), class = sd, group = Group),
+  prior(normal(0,2), class = b, dpar = beta),
+  prior(normal(0,1), class = sd, dpar = beta),
+  prior(normal(0,0.3), class = sd, dpar = beta, group=ID),
+  prior(lkj(5), class = cor)
+)
+
+# Check prior predictions
+RotatedLatencyEx_m0 <- brm(
+  BoutEx_f,
+  data = dL ,
+  family = exgaussian,
+  prior = priorEx,
+  sample_prior = "only",
+  file = here("models","RotatedLatencyEx_m0"),
+  chains = 2,
+  cores = 2,
+  backend = "cmdstanr",
+  threads = threading(2)
+  )
+pp_check(RotatedLatencyEx_m0,ndraws = 100)
+
+
+# Run the model
+RotatedLatencyEx_m <- brm(
+  BoutEx_f,
+  data = dL,
+  family = exgaussian,
+  prior = priorEx,
+  sample_prior = T,
+  chains = 2,
+  cores = 2,
+  iter = 4000,
+  file = here("models","RotatedLatencyEx_m"),
+  backend = "cmdstanr",
+  threads = threading(2),
+  control = list(
+    adapt_delta = 0.99,
+    max_treedepth = 20
+  )
+  )
+pp_check(RotatedLatencyEx_m,ndraws = 100)
+
+## Check prior/posterior update
+
+plot(hypothesis(RotatedLatencyEx_m,"TypeReal < 0"))
+plot(hypothesis(RotatedLatencyEx_m,"TypeRotated < 0"))
+plot(hypothesis(RotatedLatencyEx_m,"beta_TypeReal < 0"))
+plot(hypothesis(RotatedLatencyEx_m,"beta_TypeRotated < 0"))
+plot(hypothesis(RotatedLatencyEx_m,"sd_Group__TypeReal < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_Group__TypeRotated < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_Group__beta_TypeReal < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_Group__beta_TypeRotated < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_ID__TypeReal < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_ID__TypeRotated < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_ID__beta_TypeReal < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sd_ID__beta_TypeRotated < 0", class = ""))
+plot(hypothesis(RotatedLatencyEx_m,"sigma < 0", class = ""))
+
+# check summary
+summary(RotatedLatencyEx_m)
+
+# Test hypotheses
+dCounter <- data.frame(Type = c("Real","Rotated"), Group = 1000, ID = 100)
+Preds <- predict(RotatedLatencyEx_m, newdata = dCounter, allow_new_levels = TRUE)
+
+hypothesis(RotatedLatencyEx_m,"TypeReal-TypeRotated < 0")
+hypothesis(RotatedLatencyEx_m,"b_beta_TypeReal-b_beta_TypeRotated < 0", class = "")
+ggplot(d,aes(BoutLatency)) + geom_density(aes(group=Type,fill=Type), alpha= 0.2) + theme_classic()
+
+x <- subset(d,BoutLatency<0)
+```
+
+## Just looking at overlapping
+
+```{r overlapping analysis}
+dL <- dL %>% mutate(
+  Overlapping = ifelse(BoutLatency < 0.1, 1, 0)
+)
+
+Overlapping_f <- bf(Overlapping ~ 0 + Type + (0 + Type | Group) + (0 + Type | ID))
+
+priorOverlapping <- c(
+  prior(normal(0, 2), class = b),
+  prior(normal(0, .5), class = sd),
+  prior(normal(0, 1), class = sd, group = Group),
+  prior(lkj(5), class = cor)
+)
+
+# Check prior predictions
+RotatedOverlapping_m0 <- brm(
+  Overlapping_f,
+  data = dL ,
+  family = bernoulli(),
+  prior = priorOverlapping,
+  sample_prior = "only",
+  file = here("models","RotatedOverlapping_m0"),
+  chains = 2,
+  cores = 2,
+  backend = "cmdstanr",
+  threads = threading(2)
+  )
+
+RotatedOverlapping_m <- brm(
+  Overlapping_f,
+  data = dL ,
+  family = bernoulli(),
+  prior = priorOverlapping,
+  sample_prior = TRUE,
+  file = here("models","RotatedOverlapping_m"),
+  chains = 2,
+  cores = 2,
+  backend = "cmdstanr",
+  threads = threading(2)
+  )
+plot(hypothesis(RotatedOverlapping_m, "TypeReal > 0"))
+plot(hypothesis(RotatedOverlapping_m, "TypeRotated > 0"))
+plot(hypothesis(RotatedOverlapping_m, "TypeRotated > TypeReal"))
+plot(hypothesis(RotatedOverlapping_m, "sd_Group__TypeReal > 0", class = ""))
+plot(hypothesis(RotatedOverlapping_m, "sd_ID__TypeReal > 0", class = ""))
+plot(hypothesis(RotatedOverlapping_m, "sd_Group__TypeRotated > 0", class = ""))
+plot(hypothesis(RotatedOverlapping_m, "sd_ID__TypeRotated > 0", class = ""))
+Posterior <- posterior_samples(RotatedOverlapping_m)
+hypothesis(RotatedOverlapping_m, "TypeRotated = TypeReal")
+hypothesis(RotatedOverlapping_m, "TypeRotated < TypeReal")
+hypothesis(RotatedOverlapping_m, "TypeRotated > TypeReal")
+
+
+hypothesis(RotatedOverlapping_m, "TypeRotated = TypeReal", group = "Group", scope = "coef")
+```
