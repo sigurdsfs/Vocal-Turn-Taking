@@ -16,7 +16,7 @@ library(rstan)
 ```
 
 ```{r}
-df_whale <- read_csv("turnTakingData Whale Example/PilotWhales_jensen.csv")
+df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
 ```
 ### Plot and investigate the Data
 ```{r}
@@ -24,9 +24,12 @@ pacman::p_load("lubridate")
 
 ggplot(df_whale, aes(xmin = StartTime, xmax = StartTime + Duration )) + geom_rect()
 ```
+
+
+
 # Test overlap
 ```{r}
-df_whale <- read_csv("turnTakingData Whale Example/PilotWhales_jensen.csv")
+df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
 d_list <- list()
 Start <- Sys.time();
   

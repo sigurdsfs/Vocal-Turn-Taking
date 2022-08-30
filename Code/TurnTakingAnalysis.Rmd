@@ -175,52 +175,52 @@ RotateData <- function(d = data, threshold = threshold, delay = delay) {
 ```{r Load libraries and data}
 ## Load and preprocess the data
 ## Now with one dataset
-d1 <- CleanData(
-  filename = "data/gm15_257_call_table.txt",
-  threshold = threshold) %>%
-  mutate(
-    Group = "G1",
-    ID = paste0("d1_",WhaleID))
-
-d2 <- CleanData(
-  filename = "data/gm12_224_call_table.txt",
-  threshold = threshold) %>%
-  mutate(
-    Group = "G2",
-    ID = paste0("d2_",WhaleID))
-
-d3 <- CleanData(
-  filename = "data/gm12_207_call_table.txt",
-  threshold = threshold) %>%
-  mutate(
-    Group = "G3",
-    ID = paste0("d3_",WhaleID))
+# d1 <- CleanData(
+#   filename = "../Data/gm15_257_call_table.txt",
+#   threshold = threshold) %>%
+#   mutate(
+#     Group = "G1",
+#     ID = paste0("d1_",WhaleID))
+# 
+# d2 <- CleanData(
+#   filename = "..Data/gm12_224_call_table.txt",
+#   threshold = threshold) %>%
+#   mutate(
+#     Group = "G2",
+#     ID = paste0("d2_",WhaleID))
+# 
+# d3 <- CleanData(
+#   filename = "data/gm12_207_call_table.txt",
+#   threshold = threshold) %>%
+#   mutate(
+#     Group = "G3",
+#     ID = paste0("d3_",WhaleID))
 ```
 
 
-```{r Load libraries and data}
-d <- read_csv("PilotWhales_jensen.csv")
-Start <- Sys.time()
-for (i in seq(1000)){
-  print(i)
-  
-    
-    d <- RotateData(d, threshold = threshold, delay = delay) %>%
-      mutate(Rotation = i)
-    
-    if (exists("dRotated")){dRotated = rbind(dRotated,d)} else {dRotated = d }
-
-}
-End <- Sys.time()
-End - Start # Time to run
-
-
-write_csv(dRotated, "dRotated.csv")
-dd <- rbind(d, subset(dRotated, select=-Rotation))
+```{r}
+# d <- read_csv("../Data/PilotWhales_jensen.csv")
+# Start <- Sys.time()
+# for (i in seq(1000)){
+#   print(i)
+#   
+#     
+#     d <- RotateData(d, threshold = threshold, delay = delay) %>%
+#       mutate(Rotation = i)
+#     
+#     if (exists("dRotated")){dRotated = rbind(dRotated,d)} else {dRotated = d }
+# 
+# }
+# End <- Sys.time()
+# End - Start # Time to run
+# 
+# 
+# write_csv(dRotated, "../Data/dRotated.csv")
+# dd <- rbind(d, subset(dRotated, select=-Rotation))
 ```
 
 ```{r}
-d <- read_csv("PilotWhales_jensen.csv")
+d <- read_csv("../Data/PilotWhales_jensen.csv")
 d_list <- list()
 Start <- Sys.time();
   
@@ -231,15 +231,16 @@ for (i in seq(1000)){
 }
 dRotated <- do.call("rbind", d_list)
 End <- Sys.time() # Time to run
+End - Start
 
-write_csv(dRotated, "dRotated.csv")
+write_csv(dRotated, "../Data/dRotated.csv")
 ```
 
 
 
 ## Testing for change in overlapping in the rotated dataset
 ```{r}
-dRotated <- read_csv("dRotated.csv")
+dRotated <- read_csv("../Data/dRotated.csv")
 ```
 
 
