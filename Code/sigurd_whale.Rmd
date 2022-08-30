@@ -24,6 +24,60 @@ pacman::p_load("lubridate")
 
 ggplot(df_whale, aes(xmin = StartTime, xmax = StartTime + Duration )) + geom_rect()
 ```
+# Reset Hypothesis
+We will compare the distribution of inter- (between two or more people) vs intra-individual (consecutive solo calls) latencies. 
+No difference between the two latency distributions would support the notion of a reset hypothesis.
+
+```{r}
+df_whale <- df_whale %>% 
+  arrange(StartTime) %>%
+  mutate(Interindividual = 0)
+  
+for(i in 2:nrow(df_whale)){
+    df_whale[i,"Interindividual"] = ifelse(df_whale$ID[i] == df_whale$ID[i-1], 0, 1) #Check if inter- or intra-timing
+}
+df_whale <- df_whale %>% 
+    mutate(Interindividual = as.factor(Interindividual))
+```
+
+
+```{r}
+#Exploratory stats and plot
+df_whale %>% 
+  filter(CallType == "ResponseCall") %>%
+  count(Interindividual)
+
+df_whale %>% 
+  filter(CallType == "ResponseCall") %>%
+  ggplot(aes(x= BoutLatency, color = Interindividual)) + geom_density()
+```
+We have negative values (due to overlapping/interuption) which makes log() transformation difficult unless we work with complex numbers.   
+
+### Comparing Distributions
+**Z-score test** http://homework.uoregon.edu/pub/class/es202/ztest.html
+```{r}
+df_whale %>%
+  filter(CallType == "ResponseCall") %>% 
+  group_by(Interindividual) %>%
+  summarize(mean = mean(BoutLatency), SEM = sd(BoutLatency)/n(),n = n()) %>% 
+  summarize(Z_score = (mean[2] - mean[1]) / sqrt(sum(SEM^2)) )
+```
+
+### Kolmogorov-Smirnov test (non-parametric)
+
+https://stat.ethz.ch/R-manual/R-patched/library/stats/html/ks.test.html
+```{r}
+df_whale_Inter <- df_whale %>% 
+  filter(CallType == "ResponseCall" & Interindividual == 1) 
+df_whale_Intra <- df_whale %>%
+  filter(CallType == "ResponseCall" & Interindividual == 0)
+  
+
+ks.test(df_whale_Inter$BoutLatency, df_whale_Intra$BoutLatency)
+```
+We reject the null hypothesis in support of the two distributions being different. 
+I.e. We cannot accept the reset hypothesis since the distribution of intra- and inter-individual latency does not originate from the same distribution.
+
 
 
 
