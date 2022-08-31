@@ -22,7 +22,7 @@ df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
 ```{r}
 pacman::p_load("lubridate")
 
-ggplot(df_whale, aes(xmin = StartTime, xmax = StartTime + Duration )) + geom_rect()
+#ggplot(df_whale, aes(xmin = StartTime, xmax = StartTime + Duration )) + geom_rect()
 ```
 # Reset Hypothesis
 We will compare the distribution of inter- (between two or more people) vs intra-individual (consecutive solo calls) latencies. 
@@ -50,6 +50,10 @@ df_whale %>%
 df_whale %>% 
   filter(CallType == "ResponseCall") %>%
   ggplot(aes(x= BoutLatency, color = Interindividual)) + geom_density()
+
+df_whale %>% 
+  filter(CallType == "ResponseCall") %>%
+  ggplot(aes(x= BoutLatency, fill = Interindividual)) + geom_histogram() + facet_wrap(~Interindividual)
 ```
 We have negative values (due to overlapping/interuption) which makes log() transformation difficult unless we work with complex numbers.   
 
@@ -79,9 +83,109 @@ We reject the null hypothesis in support of the two distributions being differen
 I.e. We cannot accept the reset hypothesis since the distribution of intra- and inter-individual latency does not originate from the same distribution.
 
 
+# Inhibition Hypothesis
+• In this test, we exchanged the pairs of callers from different sessions, which generated call exchanges with occasional interruptions (Figure 2B). 
+	• Random Pairing outside of ones dyad.
+
+• We then removed the
+calls that were interrupted (calls with later onsets in the interruptions) and measured the interval distribution between the
+calls on the simulated sequence (blue line) and compared it
+to the real interval distribution (green line).
+
+• If hearing another’s
+call simply suppressed calls in a production sequence, then
+these interval distributions should be the same
+
+
+**First Way**
+Here we pair up two whales from different groups into dyads. We order their bouts in order of their start time (Should this be bout number, boutStart or StartTime, each has its merrit). We then calculate new bout latencies. 
+
+TO DO: we need to figure out if it is a response call or initation call?
+```{r}
+whale_group <- sample(unique(df_whale$Group))
+whale_ID <- sample(unique(df_whale$ID))
+
+i = 1
+for (g in whale_group){
+  
+  for (b in whale_ID){
+    #Whale 1
+    t1 <- filter(df_whale, Group == g & ID == b)
+    
+    #Whale 2
+    ID_temp <- sample(filter(df_whale, Group != g)$ID,1) #Get another whale from different group.
+    t2 <- filter(df_whale, ID == ID_temp) #Whale 2
+    
+    #Add new group number
+    df_inhib <- rbind(t1,t2) %>% 
+      mutate(Inhib_grp = i)
+    
+    #Filter interuptung calls and calculate new BoutLatency
+    df_inhib <- df_inhib %>% 
+      filter(BoutLatency > 0.1) %>% 
+      arrange(BoutStartTime) %>% 
+      mutate(BoutLatency = BoutStartTime - lag(BoutEndTime, 1))
+    
+    #Combine
+    if (i == 1) df_inhib_final <- df_inhib
+    else df_inhib_final <- rbind(df_inhib, df_inhib_final)
+    
+    i = i + 1
+  }
+}
+
+```
+
+
+**Second Way**
+1. Subset each bout in each group.
+2. Check if that bout latency is below 0.1 (interuption bout).
+3. Combine all the overlapping bouts in a data frame.
+
+But here we don't whales outside of their own group or in a different order. (mabye Riccardo can figure out what he did here)
+```{r}
+df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+rm(OverlappingBouts)
+
+for (g in unique(df_whale$Group)) {
+  
+  for (b in unique(df_whale$bout[df_whale$Group == g])) {
+  
+    t <- subset(df_whale, Group == g & bout == b)
+    
+    if ( sum(t$BoutLatency < 0.1, na.rm = T) > 0) { #If there exist Bout Latency which is below 0.1, ELSE DISREGARD
+      
+      if (exists("OverlappingBouts")) {
+        OverlappingBouts <- rbind(OverlappingBouts, t)
+      } 
+      else {
+        OverlappingBouts = t
+      }
+    }
+  }
+}
+
+OverlappingBoutsSurrogate <- subset(OverlappingBouts, BoutLatency > 0.1 | is.na(BoutLatency)) #Subset again
+
+OverlappingBoutsSurrogate <- OverlappingBoutsSurrogate %>% mutate( 
+    BoutLatency = BoutStartTime - lag(BoutEndTime, 1),
+  )
+OverlappingBoutsSurrogate$BoutLatency[OverlappingBoutsSurrogate$BoutStartTime == 0] <- NA
+
+OverlappingBouts$Type <- "Real"
+OverlappingBoutsSurrogate$Type <- "Surrogate"
+
+dO <- rbind(OverlappingBouts, OverlappingBoutsSurrogate)
+```
+
+
+
+
 
 
 # Test overlap
+
+Random stuff just exploratory for now. 
 ```{r}
 df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
 d_list <- list()
