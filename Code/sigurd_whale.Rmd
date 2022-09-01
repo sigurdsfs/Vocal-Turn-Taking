@@ -140,9 +140,9 @@ for (g in whale_group){
 2. Check if that bout latency is below 0.1 (interuption bout).
 3. Combine all the overlapping bouts in a data frame.
 
-But here we don't whales outside of their own group or in a different order. (mabye Riccardo can figure out what he did here)
+But here we don't whales outside of their own group or in a different order. (maybe Riccardo can figure out what he did here)
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 rm(OverlappingBouts)
 
 for (g in unique(df_whale$Group)) {
@@ -185,7 +185,7 @@ dO <- rbind(OverlappingBouts, OverlappingBoutsSurrogate)
 
 Random stuff just exploratory for now. 
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 d_list <- list()
 Start <- Sys.time();
   
