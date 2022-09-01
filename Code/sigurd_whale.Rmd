@@ -13,10 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rethinking)
 library(rstan)
+library(here)
 ```
 
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 ```
 ### Plot and investigate the Data
 ```{r}
