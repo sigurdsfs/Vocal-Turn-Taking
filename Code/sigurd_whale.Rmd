@@ -84,6 +84,9 @@ We reject the null hypothesis in support of the two distributions being differen
 I.e. We cannot accept the reset hypothesis since the distribution of intra- and inter-individual latency does not originate from the same distribution.
 
 
+#### Testing it in a bayesian framework.
+Possibility of testing it with Stan or something similar if that is preferred.
+
 # Inhibition Hypothesis
 • In this test, we exchanged the pairs of callers from different sessions, which generated call exchanges with occasional interruptions (Figure 2B). 
 	• Random Pairing outside of ones dyad.
@@ -99,24 +102,36 @@ these interval distributions should be the same
 Here we pair up two whales from different groups into dyads. We order their bouts in order of their start time (Should this be bout number, boutStart or StartTime, each has its merrit). We then calculate new bout latencies. 
 
 TO DO: we need to figure out if it is a response call or initation call?
+ \- I am not quite sure how that was achieved. Is it timing depended? 
+ \- Consecutive intraindividual call were also coded as response calls in the original data. Is this ok?
+ \- Currently I arrange the new "simulated" data by Bout Start time. Is this ok or should it also be arranged by Bout number? 
 ```{r}
 whale_group <- sample(unique(df_whale$Group))
-whale_ID <- sample(unique(df_whale$ID))
 
 i = 1
+
 for (g in whale_group){
+  whale_ID <- sample(unique(filter(df_whale, Group == g)$ID))
   
   for (b in whale_ID){
     #Whale 1
     t1 <- filter(df_whale, Group == g & ID == b)
     
     #Whale 2
-    ID_temp <- sample(filter(df_whale, Group != g)$ID,1) #Get another whale from different group.
+    ID_temp <- sample(filter(df_whale, Group != g & ID != b)$ID,1) #Get another whale from a different group.
+    
     t2 <- filter(df_whale, ID == ID_temp) #Whale 2
+    
+    #sanity check!
+    print(c(unique(t2$ID), unique(t1$ID)))
     
     #Add new group number
     df_inhib <- rbind(t1,t2) %>% 
-      mutate(Inhib_grp = i)
+      mutate(Group = i)
+    
+    # df_inhib %>% 
+    #   summarize(unique(ID)) %>% 
+    #   print()
     
     #Filter interuptung calls and calculate new BoutLatency
     df_inhib <- df_inhib %>% 
@@ -132,7 +147,39 @@ for (g in whale_group){
   }
 }
 
+
 ```
+
+```{r}
+#Check all groups has two unique persons.
+df_inhib_final %>% 
+  group_by(Group) %>% 
+  summarise(unique(ID)) %>%
+  count(Group)
+```
+
+```{r}
+#Combine the simulated and real data
+df_inhib_final$Type <-  "Simulated" 
+df_whale$Type <-  "Real"
+
+df_inhib_combined <- rbind(df_inhib_final, df_whale)
+```
+
+#### Compare the simulated and real BoutLatency Distribution.
+
+```{r}
+df_inhib_combined %>% 
+  ggplot(aes(BoutLatency, color = Type)) + geom_density() + xlim(-10,80)
+```
+
+```{r}
+ks.test(df_inhib_final$BoutLatency, df_whale$BoutLatency)
+```
+We reject the null hypothesis of the two distribution being similar. Supporting the hypothesis of the two distributions being different.
+
+**Again Could be done in a bayesian framework using Stan**
+  \- this is just an early easy test. 
 
 
 **Second Way**
