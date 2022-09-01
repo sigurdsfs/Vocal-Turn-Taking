@@ -14,15 +14,35 @@ T_free <- 1500
 n <- 100
 
 # Creating vectors for vocalizations
-IOI_neigh = rep(T_free, n)
-IOI_focal <- rep(NA, n)
+IOI_neigh <- tibble(Interval = rnorm(n, T_free, 150)) # The neighboring individual is freely vocalizing at its tempo
+for (i in 1:n) {
+  if (i == 1) {
+    IOI_neigh$Timing[i] = IOI_neigh$Interval[i]
+  } else {
+    IOI_neigh$Timing[i] = IOI_neigh$Interval[i] + IOI_neigh$Timing[i - 1]
+  }
+}
+IOI_focal <- tibble(Interval = rep(NA, n), Timing = NA) # The focal individual is yet undetermined
 
-## Neighboring individual vocalizes with period T_free
+## Arousal model: 
+# IF THE NEIGHBOR VOCALIZES, THE FOCAL VOCALIZES WITH AN INTERVAL OF 0-PREV NEIGH INTERVAL
+# THEN IT WAITS
 
-
-for (i in seq(n)) {
-  IOI_focal[i] <- runif(1, 0, IOI_neigh[i])
+for (i in 1:n) {
+  IOI_focal$Interval[i] <- runif(1, 0, IOI_neigh$Interval[i])
+  IOI_focal$Timing[i] <- IOI_neigh$Timing[i] + IOI_focal$Interval[i]
 }
 
-plot(IOI_focal, IOI_neigh)
-plot(IOI_focal)
+data_plot <- tibble(
+  NeighborTiming = IOI_neigh$Timing,
+  NeighborInterval = IOI_neigh$Interval,
+  FocalTiming = IOI_focal$Timing,
+  FocalInterval = IOI_focal$Interval
+)
+
+ggplot(data_plot) +
+  geom_point(aes(NeighborInterval, FocalInterval)) +
+  geom_abline(intercept = 0, slope = 1) +
+  theme_bw()
+
+
