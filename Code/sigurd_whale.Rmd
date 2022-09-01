@@ -88,13 +88,10 @@ I.e. We cannot accept the reset hypothesis since the distribution of intra- and 
 • In this test, we exchanged the pairs of callers from different sessions, which generated call exchanges with occasional interruptions (Figure 2B). 
 	• Random Pairing outside of ones dyad.
 
-• We then removed the
-calls that were interrupted (calls with later onsets in the interruptions) and measured the interval distribution between the
-calls on the simulated sequence (blue line) and compared it
+• We then removed the calls that were interrupted (calls with later onsets in the interruptions) and measured the interval distribution between the calls on the simulated sequence (blue line) and compared it
 to the real interval distribution (green line).
 
-• If hearing another’s
-call simply suppressed calls in a production sequence, then
+• If hearing another’s call simply suppressed calls in a production sequence, then
 these interval distributions should be the same
 
 
