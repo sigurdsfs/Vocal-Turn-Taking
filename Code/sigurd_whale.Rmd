@@ -13,10 +13,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rethinking)
 library(rstan)
+library(here)
 ```
 
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 ```
 ### Plot and investigate the Data
 ```{r}
@@ -90,13 +91,10 @@ Possibility of testing it with Stan or something similar if that is preferred.
 • In this test, we exchanged the pairs of callers from different sessions, which generated call exchanges with occasional interruptions (Figure 2B). 
 	• Random Pairing outside of ones dyad.
 
-• We then removed the
-calls that were interrupted (calls with later onsets in the interruptions) and measured the interval distribution between the
-calls on the simulated sequence (blue line) and compared it
+• We then removed the calls that were interrupted (calls with later onsets in the interruptions) and measured the interval distribution between the calls on the simulated sequence (blue line) and compared it
 to the real interval distribution (green line).
 
-• If hearing another’s
-call simply suppressed calls in a production sequence, then
+• If hearing another’s call simply suppressed calls in a production sequence, then
 these interval distributions should be the same
 
 
@@ -189,9 +187,9 @@ We reject the null hypothesis of the two distribution being similar. Supporting 
 2. Check if that bout latency is below 0.1 (interuption bout).
 3. Combine all the overlapping bouts in a data frame.
 
-But here we don't whales outside of their own group or in a different order. (mabye Riccardo can figure out what he did here)
+But here we don't whales outside of their own group or in a different order. (maybe Riccardo can figure out what he did here)
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 rm(OverlappingBouts)
 
 for (g in unique(df_whale$Group)) {
@@ -234,7 +232,7 @@ dO <- rbind(OverlappingBouts, OverlappingBoutsSurrogate)
 
 Random stuff just exploratory for now. 
 ```{r}
-df_whale <- read_csv("../Data/PilotWhales_jensen.csv")
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 d_list <- list()
 Start <- Sys.time();
   
