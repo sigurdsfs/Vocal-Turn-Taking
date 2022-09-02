@@ -383,10 +383,10 @@ pacman::p_load(ggforce)
 
 ```{r}
 p <- InterCallsIntervals %>% 
-    ggplot(aes(x = x, y = Intervals, col = FirstCall)) + geom_line()  + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i) + theme(legend.position = "none")
+    ggplot(aes(x = x, y = Intervals, col = FirstCall)) + geom_line()  + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i, scales = "free") + theme(legend.position = "none")
 
 for(i in 1:n_pages(p)){
-    p_save <-  p + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i)
+    p_save <-  p + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i, scales = "free")
   ggsave(plot = p_save, filename = paste0('../Plots/Coupled_Oscillators_page_', i, '.jpg'))
 }
 
@@ -394,6 +394,7 @@ for(i in 1:n_pages(p)){
 
 
 ```{r}
+#Cross-Cor Time
 ccf(x = InterCallsIntervals$Intervals[])
 ```
 
