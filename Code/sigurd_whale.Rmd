@@ -98,7 +98,7 @@ to the real interval distribution (green line).
 these interval distributions should be the same
 
 
-**First Way**
+## First Way
 Here we pair up two whales from different groups into dyads. We order their bouts in order of their start time (Should this be bout number, boutStart or StartTime, each has its merrit). We then calculate new bout latencies. 
 
 TO DO: we need to figure out if it is a response call or initation call?
@@ -169,8 +169,9 @@ df_inhib_combined <- rbind(df_inhib_final, df_whale)
 #### Compare the simulated and real BoutLatency Distribution.
 
 ```{r}
-df_inhib_combined %>% 
-  ggplot(aes(BoutLatency, color = Type)) + geom_density() + xlim(-10,80)
+Plot_inhib1 <- df_inhib_combined %>% 
+  ggplot(aes(BoutLatency, color = Type)) + geom_density() + xlim(-10,80) + ggtitle("Method 1")
+Plot_inhib1
 ```
 
 ```{r}
@@ -182,12 +183,85 @@ We reject the null hypothesis of the two distribution being similar. Supporting 
   \- this is just an early easy test. 
 
 
-**Second Way**
+## Second Way
+Whale1 = Find specific bout communicated by specific Whale in a specific Group.
+Whale2 = Must not be the same bout in the same group. As this would be matching whale1 with someone from its original communication. It can be any other Bout either in the same group or in another group. 
+
+**LET US DISCUSS THIS:** 
+\- (I am unsure if we wanna match the same whale twice but in different bouts, LETS DISCUSS)
+\- Another option is also to include several whales in group to get some shuffeld data closer to the original data?
+```{r}
+i = 1
+for (g in unique(df_whale$Group)) {
+  
+  for (id in unique(df_whale$ID[df_whale$Group == g])){
+  
+    for (b in (unique(df_whale$bout[df_whale$Group == g & df_whale$ID == id]))){
+      
+      #Whale1
+      whale1 <- subset(df_whale, Group == g & ID == id & bout == b)
+      
+      #Whale 2
+      whale2_INFO <- df_whale %>% 
+        group_by(ID, Group, bout) %>% 
+        slice_sample()%>% 
+        filter(Group != g & ID != id & bout != b) %>%
+        ungroup() %>% 
+        sample_n(1)
+
+      whale2 <- subset(df_whale, Group == whale2_INFO$Group & ID == whale2_INFO$ID & bout == whale2_INFO$bout)
+      
+      df_inhib2 <- rbind(whale1,whale2) %>% 
+        filter(BoutLatency > 0.1) %>% 
+        arrange(BoutStartTime) %>% 
+        mutate(Group = i) %>% 
+        mutate(BoutLatency = BoutStartTime - lag(BoutEndTime, 1))
+    
+      
+    
+    #Combine
+    if (i == 1) df_inhib_final2 <- df_inhib2
+    else df_inhib_final2 <- rbind(df_inhib2, df_inhib_final2)
+      
+    i = i +1
+    }
+  } 
+}
+```
+
+**Compare**
+```{r}
+#Combine the simulated and real data
+df_inhib_final2$Type <-  "Simulated" 
+df_whale$Type <-  "Real"
+
+df_inhib_combined2 <- rbind(df_inhib_final2, df_whale)
+```
+
+#### Compare the simulated and real BoutLatency Distribution.
+
+```{r}
+Plot_inhib2 <- df_inhib_combined2 %>% 
+  ggplot(aes(BoutLatency, color = Type)) + geom_density() + xlim(-10,80) + ggtitle("Method 2")
+Plot_inhib2
+```
+
+```{r}
+ks.test(df_inhib_final$BoutLatency, df_whale$BoutLatency)
+```
+
+
+### Comparing 1st and 2nd method
+```{r}
+pacman::p_load(ggpubr)
+ggarrange(Plot_inhib1, Plot_inhib2, nrow = 2)
+```
+
+## Third Way
 1. Subset each bout in each group.
 2. Check if that bout latency is below 0.1 (interuption bout).
 3. Combine all the overlapping bouts in a data frame.
-
-But here we don't whales outside of their own group or in a different order. (maybe Riccardo can figure out what he did here)
+But here we don't have whales outside of their own group or in a different order. (maybe Riccardo can figure out what he did here)
 ```{r}
 df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 rm(OverlappingBouts)
@@ -198,7 +272,7 @@ for (g in unique(df_whale$Group)) {
   
     t <- subset(df_whale, Group == g & bout == b)
     
-    if ( sum(t$BoutLatency < 0.1, na.rm = T) > 0) { #If there exist Bout Latency which is below 0.1, ELSE DISREGARD
+    if ( sum( t$BoutLatency < 0.1, na.rm = T ) > 0) { #If there exist Bout Latency which is below 0.1, ELSE DISREGARD
       
       if (exists("OverlappingBouts")) {
         OverlappingBouts <- rbind(OverlappingBouts, t)
@@ -222,6 +296,108 @@ OverlappingBoutsSurrogate$Type <- "Surrogate"
 
 dO <- rbind(OverlappingBouts, OverlappingBoutsSurrogate)
 ```
+
+# Coupled Oscillators:
+• That is, we measured the interval between marmoset 1’s first call and then the marmoset 20s first, second, third. nth calls. We then repeated this for marmoset 1’s second call. 
+
+• Using this procedure, we quantified the degree of coupling by calculating the cross-correlation between the call time series of the two marmosets exchanging vocalizations. 
+ \- Should this be 
+
+If the two marmosets are coupled, then the correlation should have significant peaks at regular intervals
+
+**Assumptions**
+
+\- When working with inter individual communication larger than dyads:
+     \- View everyone else than "A" as a collective "B". 
+
+```{r}
+InterCallsIntervals <- NULL
+for (g in unique(df_whale$Group)){
+  for (b in unique(d$bout[df_whale$Group == g])){
+  
+  Caller1 <- df_whale$WhaleID[df_whale$bout==b & df_whale$Group == g][1] #Identify the first caller
+  Calls1 <- df_whale$BoutStartTime[df_whale$bout==b & df_whale$WhaleID == Caller1 & df_whale$Group == g] #All Caller1 calls. 
+  
+  if (length(df_whale$WhaleID[df_whale$bout==b & df_whale$WhaleID != Caller1 & df_whale$Group == g]>0)){ #All other calls in that specific Bout and Group not produced by Caller1. 
+    
+    for (call in Calls1){
+      #Intercall timings.
+      tempIntervals <- df_whale$BoutStartTime[df_whale$bout==b & df_whale$WhaleID != Caller1 & df_whale$Group == g] - call
+      #Caller Info
+      tempCaller <- df_whale$WhaleID[df_whale$bout==b & df_whale$WhaleID != Caller1 & df_whale$Group == g] 
+      Bout <- df_whale$bout[df_whale$bout==b & df_whale$WhaleID != Caller1 & df_whale$Group == g]
+      FirstCall <- which(Calls1==call)
+      tempData <- data.frame(Intervals = tempIntervals, FirstCaller= Caller1, Caller=tempCaller, Bout = Bout, FirstCall=FirstCall, Group = g)
+      
+      tempData <- subset(tempData, Intervals > 0) #NOTE NOTE NOTE I AM NOT SURE WE SHOULD DO THIS IF WE WANNA LOOK AT CROSS-CORELATION. 
+      
+      if (exists("InterCallsIntervals")){
+        InterCallsIntervals = rbind(InterCallsIntervals,tempData)
+        } 
+      else {
+        InterCallsIntervals = tempData
+        }
+      }
+    }
+  }
+}
+```
+
+```{r}
+InterCallsIntervals <- InterCallsIntervals %>% 
+  mutate_at(c("Bout", "FirstCall", "Group", "Caller", "FirstCaller"), as.factor) %>% 
+  group_by(Bout, FirstCall, Group) %>% 
+  mutate(Index = row_number())
+```
+
+
+
+```{r}
+for (g in unique(InterCallsIntervals$Group)){
+  for (b in unique(InterCallsIntervals$Bout[InterCallsIntervals$Group == g])) {
+    plot(Intervals ~ x, col = FirstCall, type = "l", data = filter(InterCallsIntervals, Group == g, Bout == b))
+    lines(Intervals~x, col = FirstCall, data = filter(InterCallsIntervals, Group == g, Bout == b))
+  }
+}
+
+```
+
+```{r}
+for (g in unique(InterCallsIntervals$Group)){
+  for (b in unique(InterCallsIntervals$Bout[InterCallsIntervals$Group == g])) {
+    plot(NULL, xlim = c(0,30), ylim = c(0,200))
+    lines(Intervals~x, col = FirstCall, data = filter(InterCallsIntervals, Group == g, Bout == b))
+  }
+}
+
+```
+
+```{r}
+InterCallsIntervals %>% 
+  ggplot(aes(x = x, y = Intervals, col = FirstCall)) + geom_line()  + facet_grid(rows = vars(Group), cols = vars(Bout))
+```
+```{r}
+pacman::p_load(ggforce)
+```
+
+
+```{r}
+p <- InterCallsIntervals %>% 
+    ggplot(aes(x = x, y = Intervals, col = FirstCall)) + geom_line()  + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i) + theme(legend.position = "none")
+
+for(i in 1:n_pages(p)){
+    p_save <-  p + facet_wrap_paginate(vars(Bout, Group), nrow = 3, ncol = 1, page = i)
+  ggsave(plot = p_save, filename = paste0('../Plots/Coupled_Oscillators_page_', i, '.jpg'))
+}
+
+```
+
+
+```{r}
+ccf(x = InterCallsIntervals$Intervals[])
+```
+
+
 
 
 
