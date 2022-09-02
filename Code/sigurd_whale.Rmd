@@ -235,7 +235,7 @@ Random stuff just exploratory for now.
 df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
 d_list <- list()
 Start <- Sys.time();
-  
+
 for (i in seq(1000)){
   #print(i)
     d_list[[i]] <- RotateData(d, threshold = threshold, delay = delay) %>%
