@@ -351,30 +351,10 @@ InterCallsIntervals <- InterCallsIntervals %>%
 ```
 
 
-
-```{r}
-for (g in unique(InterCallsIntervals$Group)){
-  for (b in unique(InterCallsIntervals$Bout[InterCallsIntervals$Group == g])) {
-    plot(Intervals ~ x, col = FirstCall, type = "l", data = filter(InterCallsIntervals, Group == g, Bout == b))
-    lines(Intervals~x, col = FirstCall, data = filter(InterCallsIntervals, Group == g, Bout == b))
-  }
-}
-
-```
-
-```{r}
-for (g in unique(InterCallsIntervals$Group)){
-  for (b in unique(InterCallsIntervals$Bout[InterCallsIntervals$Group == g])) {
-    plot(NULL, xlim = c(0,30), ylim = c(0,200))
-    lines(Intervals~x, col = FirstCall, data = filter(InterCallsIntervals, Group == g, Bout == b))
-  }
-}
-
-```
-
 ```{r}
 InterCallsIntervals %>% 
-  ggplot(aes(x = x, y = Intervals, col = FirstCall)) + geom_line()  + facet_grid(rows = vars(Group), cols = vars(Bout))
+  ggplot(aes(Intervals)) + geom_density()
+
 ```
 ```{r}
 pacman::p_load(ggforce)
@@ -425,20 +405,59 @@ write_csv(dRotated, "dRotated.csv")
 ```
 
 ```{r}
-dRotated <- read_csv("dRotated.csv")
+dRotated <- read_csv(here("Data","dRotated.csv"))
 ```
 
-
-## Permutation
 ```{r}
-dens(df_whale$BoutLatency)
+# We generate a few different performance measures before comparing how likely real data are in the rotated distribution
+### N of overlappings by group
+### Duration of overlapping
+### Fraction of the call overlapping
 
-df_whale %>% 
-  filter(!is.na(BoutLatency)) %>% 
-  summarise(sum(BoutLatency > 0 )/length(BoutLatency))
+RotatedStats <- dRotated %>% group_by(Rotation, Group) %>% #, WhaleID
+  summarize(
+    OverlappingN = sum(BoutLatency < 0.1, na.rm=T),
+    OverlappingProb = sum(BoutLatency < 0.1, na.rm=T)/n(),
+    OverlappingDuration = sum(ifelse(BoutLatency < 0.1, abs(BoutLatency), 0), na.rm=T),
+    OverlappingFraction = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, NA), na.rm=T),
+    OverlappingFraction2 = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, 0), na.rm=T)
+  )
 
+Stats <- dRotated %>% group_by(Group) %>% #, WhaleID
+  summarize(
+    OverlappingN = sum(BoutLatency < 0.1, na.rm=T),
+    OverlappingProb = sum(BoutLatency < 0.1, na.rm=T)/n(),
+    OverlappingDuration = sum(ifelse(BoutLatency < 0.1, abs(BoutLatency), 0), na.rm=T),
+    OverlappingFraction = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, NA), na.rm=T),
+    OverlappingFraction2 = mean(ifelse(BoutLatency < 0.1, abs(BoutLatency)/Duration, 0), na.rm=T)
+  )
 
-t.test(df_whale$BoutLatency , mu = 0)
+#ss <- r
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G1"] > Stats$OverlappingProb[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G2"] > Stats$OverlappingProb[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingProb[RotatedStats$Group== "G3"] > Stats$OverlappingProb[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G1"] > Stats$OverlappingDuration[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G2"] > Stats$OverlappingDuration[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingDuration[RotatedStats$Group== "G3"] > Stats$OverlappingDuration[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G1"] > Stats$OverlappingFraction2[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G2"] > Stats$OverlappingFraction2[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingFraction2[RotatedStats$Group== "G3"] > Stats$OverlappingFraction2[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G1"] > Stats$OverlappingFraction[Stats$Group== "G1"])/nrow(RotatedStats[RotatedStats$Group== "G1",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G2"] > Stats$OverlappingFraction[Stats$Group== "G2"])/nrow(RotatedStats[RotatedStats$Group== "G2",])
+
+sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G3"] > Stats$OverlappingFraction[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
 ```
+
 
 
