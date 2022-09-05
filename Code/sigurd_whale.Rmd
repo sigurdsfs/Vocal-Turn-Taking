@@ -379,6 +379,13 @@ ccf(x = InterCallsIntervals$Intervals[])
 ```
 
 
+### Coupled Oscilliation Parameters:
+- R(response intervals): A_offset - B_onset
+- PR (Phase response): 
+- T0: Interval call of animal A that did not have a intervening call from marmoset 2. 
+
+PR - T0 = Will indicate if animal A respond quickly or slowly to animal B.
+
 
 
 
