@@ -87,7 +87,15 @@ ResetHypothesis <- function(n, mu_latency, sd_latency){
     if ((nrow(filter(IOI, Caller == "Focal")) > n & nrow(filter(IOI, Caller == "Neighbor")) > n) | nrow(IOI) > (n*3)) {
       break
     }
+   
   }
+  IOI <- IOI %>% 
+    rename(Latency = Interval) #Rename with proper name
+    
+  IOI <- mutate_at(IOI, vars(Onset, Offset), function(x) x - IOI$Latency[1])
+  IOI$Latency[1] <- NA
+  
+  #Force first Onset to 0.
   return(IOI)
 }
-ResetInhibition(n = -1, mu_latency = 150, sd_latency = 15)
+
