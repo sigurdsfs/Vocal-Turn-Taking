@@ -22,6 +22,15 @@ sigmoid(-3:3)
 # WE HAVE NO DURATION HERE, IT DOESN*T MATTER FOR THE MODEL, BUT WE MIGHT ADD IT.
 
 
+# Authors:
+#                       ## Variables ##
+# n: Number of observations before filtering for inhibited calls.
+# 
+#                       ## Latency ##
+# mu_latency: The average wait time between consecutive calls for each individual.
+# sd_latency: The uncertainty regarding the latency between calls.
+
+
 ArousalModel_Stochastic <- function(n, mu_latency, sd_latency){
   if ( any( n%%1 != 0 | n < 0 | length(n) != 1 )) stop("n should be an integer between 1:Infinity")
   if ( any( mu_latency%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_latency should be numeric and between 1:Infinity")

@@ -1,4 +1,15 @@
 #Baseline Non interactive communication of dyads.
+# Authors:
+#                       ## Variables ##
+# n: Number of observations before filtering for inhibited calls.
+# 
+#                       ## Latency ##
+# mu_latency: The average wait time between consecutive calls for each individual.
+# sd_latency: The uncertainty regarding the latency between calls.
+# 
+#                   ## Call Duration ##
+# mu_duration: What is the average call duration of our callers.
+# sd_duration: What is the uncertainity in the average call duration. 
 
 Baseline <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
   if ( any( n%%1 != 0 | n < 0 | length(n) != 1 )) stop("n should be an integer between 1:Infinity")
