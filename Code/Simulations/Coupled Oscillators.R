@@ -1,10 +1,10 @@
-# Coupled Oscillitation Generative Model:
+# Coupled Oscillators Generative Model:
 ############################################
 # According to (2013,Takahashi). 
 # 
 # A:(animal 1), B:(animal2)
 # 
-# - The coupling of time dependencies in phase and anti-phase allows for the deriviation of 
+# - The coupling of time dependencies in phase and anti-phase allows for the derivation of 
 # timing of animal B given that we know the timings of animal A's speech production.
 # 
 # # Measures
@@ -18,7 +18,7 @@
 
 n = 10 #Number of calls A
 u <- 0 #Average communication duration.   
-period <- 9 #The periodicy of aniaml A calls. (can be changed to stochastic)
+period <- 9 #The periodicity of animal A calls. (can be changed to stochastic)
 n_onsets <- seq(1,n)
 
 #Animal A
