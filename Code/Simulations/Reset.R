@@ -1,23 +1,38 @@
-## RESET
-## WE HAVE A FIRST STEP: ONE INITIATES
+## RESET Hypothesis
 
-ResetHypothesis <- function(n, mu_latency, sd_latency){
+
+# Authors:
+#                       ## Variables ##
+# n: Number of observations before filtering for inhibited calls.
+# 
+#                       ## Latency ##
+# mu_latency: The average wait time between consecutive calls for each individual.
+# sd_latency: The uncertainty regarding the latency between calls.
+# 
+#                   ## Call Duration ##
+# mu_duration: What is the average call duration of our callers.
+# sd_duration: What is the uncertainity in the average call duration.
+
+
+ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
   #Condition/warnings
   if ( any( n%%1 != 0 | n < 0 | length(n) != 1 )) stop("n should be an integer between 1:Infinity")
-  if ( any( mu_latency%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("n should be an integer between 1:Infinity")
-  if ( any( sd_latency%%1 != 0 | sd_latency < 0 | length(sd_latency) != 1)) stop("n should be an integer between 1:Infinity")
+  if ( any( mu_latency%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_latency should be an integer between 1:Infinity")
+  if ( any( sd_latency%%1 != 0 | sd_latency < 0 | length(sd_latency) != 1)) stop("sd_latency should be an integer between 1:Infinity")
+  if ( any( mu_duration%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_duration should be numeric and between 1:Infinity")
+  if ( any( sd_duration%%1 != 0 | sd_latency < 0 | length(sd_latency) != 1)) stop("sd_duration should be numeric and between 1:Infinity")
   
   
   #Function Start
   IOI_neigh <- tibble(Interval = rnorm(1, mu_latency, sd_latency), 
-                      Duration = rnorm(1, 500, 100)) %>% # The neighboring individual is freely vocalizing at its tempo
+                      Duration = rnorm(1, mu_duration, sd_duration)) %>% # The neighboring individual is freely vocalizing at its tempo
     mutate(
       Onset = Interval,
       Offset = Onset + Duration
     )
   
   IOI_focal <- tibble(Interval = rnorm(1, mu_latency, sd_latency), 
-                      Duration = rnorm(1, 500, 100)) %>% # The neighboring individual is freely vocalizing at its tempo
+                      Duration = rnorm(1, mu_duration, sd_duration)) %>% # The neighboring individual is freely vocalizing at its tempo
     mutate(
       Onset = Interval + runif(1, 0, mu_latency),
       Offset = Onset + Duration

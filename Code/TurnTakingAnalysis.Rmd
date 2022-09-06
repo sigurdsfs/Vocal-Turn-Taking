@@ -295,6 +295,7 @@ sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G2"] > Stats$Overlapp
 sum(RotatedStats$OverlappingFraction[RotatedStats$Group== "G3"] > Stats$OverlappingFraction[Stats$Group== "G3"])/nrow(RotatedStats[RotatedStats$Group== "G3",])
 ```
 
+
 ## RESET Hypothesis:
 ### extract intervals btw consecutive calls within bout by the same individual *tagging the individual*
 ### extract intervals btw consecutive calls within bout by different individuals *tagging the second individual*
@@ -537,6 +538,7 @@ pp_check(InhibitionLatencyEx_m,ndraws = 100)
 ## Calculate the intercall intervals
 
 ```{r}
+
 InterCallsIntervals <- NULL
 
 for (b in unique(d$bout)){

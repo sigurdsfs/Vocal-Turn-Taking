@@ -1,20 +1,21 @@
 # Coupled Oscillitation Generative Model:
-"""
-According to (2013,Takahashi). 
+############################################
+# According to (2013,Takahashi). 
+# 
+# A:(animal 1), B:(animal2)
+# 
+# - The coupling of time dependencies in phase and anti-phase allows for the deriviation of 
+# timing of animal B given that we know the timings of animal A's speech production.
+# 
+# # Measures
+# - R(response intervals): A_offset - B_onset
+# - PR (Phase response): 
+# - T0: Interval call of animal A that did not have a intervening call from marmoset 2. 
+# 
+# PR - T0 = Will indicate if animal A respond quickly or slowly to animal B
+# 
+# ########################################
 
-A:(animal 1), B:(animal2)
-
-- The coupling of time dependencies in phase and anti-phase allows for the deriviation of 
-timing of animal B given that we know the timings of animal A's speech production.
-
-# Measures
-- R(response intervals): A_offset - B_onset
-- PR (Phase response): 
-- T0: Interval call of animal A that did not have a intervening call from marmoset 2. 
-
-PR - T0 = Will indicate if animal A respond quickly or slowly to animal B
-
-"""
 n = 10 #Number of calls A
 u <- 0 #Average communication duration.   
 period <- 9 #The periodicy of aniaml A calls. (can be changed to stochastic)
