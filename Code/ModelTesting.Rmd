@@ -35,6 +35,8 @@ Latency: The difference between Onset and the previous calls Offset.
 # Testing of Models
 
 ## Testing Simulated Data
+
+#### Inhibition Generative Model
 ```{r}
 ### Testing Inhibiton
 
@@ -57,7 +59,7 @@ Inhibition_Sim <- do.call("rbind", df_list_inhib)
 InhibitionHypothesis(Inhibition_Sim)
 ```
 
-
+#### Reset Generative Model
 ```{r}
 ### Testing Reset
 
@@ -73,10 +75,50 @@ for (i in 1:10){
 #Bind all simulated data sets together
 Reset_Sim <- do.call("rbind", df_list)
 
-ResetHypothesis2(Reset_Sim)
+ResetHypothesis(Reset_Sim)
 
 ```
 
+#### Arousal Generative Model
+```{r}
+#Simulate Several Instances of Arousal data.
+df_list <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list[[i]] <- ArousalModel_Stochastic(n = 100, mu_latency = 150, sd_latency = 15) %>% 
+    mutate(Group = i)
+  End <- Sys.time()
+  print(End - Start)
+}
+#Bind all simulated data sets together
+Arousal_Sim <- do.call("rbind", df_list)
+
+#Testing
+ResetHypothesis(Arousal_Sim)
+
+InhibitionHypothesis(Arousal_Sim) # Needs WORK CURRENTLY REQUIRE OFFSET / DURATION
+```
+
+
+
+#### Baseline Generative Model
+```{r}
+#Simulate Several Instances of Baseline data.
+df_list <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list[[i]] <- Baseline(n = 100, mu_latency = 150, sd_latency = 15, mu_duration = 50, sd_duration = 10) %>% 
+    mutate(Group = i)
+  End <- Sys.time()
+  print(End - Start)
+}
+#Bind all simulated data sets together
+Baseline_Sim <- do.call("rbind", df_list)
+
+#Testing
+InhibitionHypothesis(Baseline_Sim)
+ResetHypothesis(Baseline_Sim)
+```
 
 
 

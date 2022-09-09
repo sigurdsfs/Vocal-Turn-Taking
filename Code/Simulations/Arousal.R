@@ -70,7 +70,9 @@ ArousalModel_Stochastic <- function(n, mu_latency, sd_latency){
   IOI <- rbind(IOI_focal, IOI_neigh) %>% 
     filter(Onset != "NA") %>% 
     arrange(Onset) %>% 
-    rename(Latency = Interval)
+    rename(Latency = Interval) %>% 
+    mutate(ID = caller) %>% 
+    mutate(CallNr = 1)
   IOI$Latency[1] <- NA 
   
   return(IOI)
@@ -103,7 +105,9 @@ ArousalModel_NoStochasticity <- function(n, mu_latency, sd_latency){
   
   IOI <- rbind(IOI_focal, IOI_neigh) %>% 
     arrange(Onset) %>% 
-    rename(Latency = Interval)
+    rename(Latency = Interval) %>% 
+    mutate(ID = caller) %>% 
+    mutate(CallNr = 1)
   
   IOI$Latency[1] <- NA 
   
