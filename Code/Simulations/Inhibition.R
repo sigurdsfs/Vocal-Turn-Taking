@@ -15,15 +15,15 @@
 ### WE NEED TO GENERALIZE TO CASES WHERE A CALLER CAN MAKE MULTIPLE CALLS BEFORE THE OTHER ENTERS.
 # We can do this if we create different latency and duration parameters for every individual caller. (just add two more variables to our function)
 
-InhibitionHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
+InhibitionModel <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
   if ( any( n%%1 != 0 | n < 0 | length(n) != 1 )) stop("n should be an integer between 1:Infinity")
   if ( any( mu_latency%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_latency should be numeric and between 1:Infinity")
   if ( any( sd_latency%%1 != 0 | sd_latency < 0 | length(sd_latency) != 1)) stop("sd_latency should be numeric and between 1:Infinity")
   if ( any( mu_duration%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_duration should be numeric and between 1:Infinity")
   if ( any( sd_duration%%1 != 0 | sd_latency < 0 | length(sd_latency) != 1)) stop("sd_duration should be numeric and between 1:Infinity")
   
-  IOI_neigh <- tibble(Interval = abs(rnorm(n, mu_latency, sd_latency)), Duration = abs(rnorm(n, mu_duration, sd_duration)), Onset = NA, Offset = NA, Inhibited = NA) # The neighboring individual is freely vocalizing at its tempo
-  IOI_focal <- tibble(Interval = abs(rnorm(n, mu_latency, sd_latency)), Duration = abs(rnorm(n, mu_duration, sd_duration)), Onset = NA, Offset = NA, Inhibited = NA) # The neighboring individual is freely vocalizing at its tempo
+  IOI_neigh <- tibble(Interval = abs(rnorm(n, mu_latency, sd_latency)), Duration = abs(rnorm(n, mu_duration, sd_duration)), Onset = NA, Offset = NA, Inhibited = NA, ID = 1) # The neighboring individual is freely vocalizing at its tempo
+  IOI_focal <- tibble(Interval = abs(rnorm(n, mu_latency, sd_latency)), Duration = abs(rnorm(n, mu_duration, sd_duration)), Onset = NA, Offset = NA, Inhibited = NA, ID = 2) # The neighboring individual is freely vocalizing at its tempo
   
   for (i in 1:n){
     if (i == 1){
@@ -87,10 +87,11 @@ InhibitionHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_dura
   }
   #Final changes to the combined data
   data_neigh <- data_inhibition %>% 
-    select(starts_with("Neigh"))
-  
+    select(starts_with("Neigh")) 
+    mutate(ID = "Neigh")
   data_focal <- data_inhibition %>% 
-    select(starts_with("Focal"))
+    select(starts_with("Focal")) %>% 
+    mutate(ID = "Focal")
   
   
   names(data_focal) <- gsub(pattern = "Focal*", replacement = "", x = names(data_focal))
@@ -103,6 +104,8 @@ InhibitionHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_dura
   
   IOI <- mutate_at(IOI, vars(Onset, Offset), function(x) x - IOI$Latency[1])
   IOI$Latency[1] <- NA
+  
+  IOI$CallNr <- 1
   
   return(IOI)
 }

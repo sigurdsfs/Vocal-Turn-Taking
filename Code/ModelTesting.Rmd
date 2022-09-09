@@ -1,0 +1,67 @@
+---
+title: "Testing_Data"
+author: "Sigurd Fyhn Sørensen"
+date: "2022-09-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+**Steps to follow:**
+\- Source/import all the Generative Models/Simulation function. They can all be found in the subfolder called "Simulations".
+\- Source/import all the model testing function which can be found in the R script called "ModelFunctions.R" 
+\- Once done with step 1 and 2 you can freely simulate data from the different generative models. All models can be tested with empirical and simulated data.
+\- \- To test empirical data you have to make sure that your data contains columns with the right names and values. 
+
+ID: Unique ID for every individual caller
+CallNr: In case a group has several instances of communication. i.e. They start communicating, takes a pause and then initiate another instance of communication.
+Group: Different groups communicating. Individuals should not be able to communicate across groups
+Onset: The start time for every initiated call.
+Offset: The end time for every initiated call.
+Latency: The difference between Onset and the previous calls Offset. 
+(Duration): The duration of every call, can be found by Duration = Offset - Onset. Not required for all models but is very useful. 
+
+
+```{r}
+### Testing Inhibiton
+
+#There are some issues with sizes of two data frames sometimes not matching... Should be looked at..
+df_list_inhib <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list_inhib[[i]] <- InhibitionModel(n = 100, mu_latency = 150, sd_latency = 15, mu_duration = 300, sd_duration = 100) %>% 
+    mutate(Group = i) %>% 
+    mutate(ID = ID*i)
+  End <- Sys.time()
+  print(End - Start)
+}
+
+
+#Bind all simulated data sets together
+Inhibition_Sim <- do.call("rbind", df_list_inhib)
+
+#Test
+InhibitionHypothesis(Inhibition_Sim)
+```
+
+
+```{r}
+### Testing Reset
+
+#Simulate Several Instances of Reset data.
+df_list <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list[[i]] <- ResetModel(n = 100, mu_latency = 150, sd_latency = 15, mu_duration = 300, sd_duration = 100) %>% 
+    mutate(Group = i)
+  End <- Sys.time()
+  print(End - Start)
+}
+#Bind all simulated data sets together
+Reset_Sim <- do.call("rbind", df_list)
+
+ResetHypothesis2(Reset_Sim)
+
+```

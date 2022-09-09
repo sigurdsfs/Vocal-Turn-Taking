@@ -3,6 +3,9 @@ title: "R Notebook"
 output: html_notebook
 ---
 # Functions
+
+
+## Clean Data
 ```{r}
 # Define the threshold below which a call is a response call 
 threshold <- 100 # 100 is a result from a mixture gaussian model from Frants
@@ -75,7 +78,7 @@ CleanData <- function(filename =filename, threshold=threshold){
 }
 ```
 
-
+## Rotation Analysis 
 ```{r}
 RotateData <- function(d = data, threshold = threshold, delay = delay) {
 
@@ -138,4 +141,158 @@ RotateData <- function(d = data, threshold = threshold, delay = delay) {
   return(d)
 }
 ```
+
+## Reset Hypothesis:
+
+```{r}
+#Better use of arrange. 
+ResetHypothesis2 <- function(data){
+
+  data <- data %>% 
+    arrange(Group, CallNr, Onset) %>%
+    mutate(Interindividual = 0)
+    
+  for(i in 2:nrow(data)){
+      data[i,"Interindividual"] = ifelse(data$ID[i] == data$ID[i-1], 0, 1) #Check if inter- or intra-timing
+  }
+  data <- data %>% 
+      mutate(Interindividual = as.factor(Interindividual))
+  
+  #plotting
+  plot <- data %>% 
+    filter(Latency != "NA") %>%
+    ggplot(aes(x = Latency, color = Interindividual)) + geom_density()
+  print(plot)
+  
+  #Testing
+  df_Inter <- data %>% 
+    filter(Latency != "NA" & Interindividual == 1) 
+  
+  df_Intra <- data %>%
+    filter(Latency != "NA" & Interindividual == 0)
+  
+  test <- ks.test(df_Inter$Latency, df_Intra$Latency)
+  print(test)
+  return(data)
+}
+```
+
+```{r}
+### Testing
+
+#Simulate Several Instances of Reset data.
+df_list <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list[[i]] <- ResetModel(n = 100, mu_latency = 150, sd_latency = 15, mu_duration = 300, sd_duration = 100) %>% 
+    mutate(Group = i)
+  End <- Sys.time()
+  print(End - Start)
+}
+#Bind all simulated data sets together
+Reset_Sim <- do.call("rbind", df_list)
+
+ResetHypothesis2(Reset_Sim)
+
+```
+
+## Inhibition Hypothesis
+
+
+```{r}
+
+#Animal1 = Find specific sequence of Turn-taking communicated by a specific animal (A) in a specific Group (AG).
+#Animal2 = Must not be in the same group. As this would be matching whale1 with someone from its original communication. It can be any other Bout either in the #same group or in another group. 
+InhibitionHypothesis <- function(df){
+  i = 1
+  for (g in unique(df$Group)) {
+    
+    for (id in unique(df$ID[df$Group == g])){
+    
+      for (b in (unique(df$CallNr[df$Group == g & df$ID == id]))){
+        
+        #Whale1
+        whale1 <- subset(df, Group == g & ID == id & CallNr == b)
+        
+        if (length(unique(whale1$CallNr))== 1){
+          #Whale 2
+          whale2_INFO <- df %>% 
+            group_by(ID, Group) %>% 
+            slice_sample()%>% 
+            filter(Group != g & ID != id) %>%
+            ungroup() %>% 
+            sample_n(1)
+        }
+        else{
+          #Whale 2
+          whale2_INFO <- df %>% 
+            group_by(ID, Group, CallNr) %>% 
+            slice_sample()%>% 
+            filter(Group != g & ID != id & CallNr != b) %>%
+            ungroup() %>% 
+            sample_n(1)
+        }
+        
+        whale2 <- subset(df, Group == whale2_INFO$Group & ID == whale2_INFO$ID & CallNr == whale2_INFO$CallNr)
+        
+        df_inhib2 <- rbind(whale1,whale2) %>% 
+          filter(Latency > 0.1) %>% 
+          arrange(Group, CallNr, Onset) %>% 
+          mutate(Group = i) %>% 
+          mutate(Latency = Onset - lag(Offset, 1))
+      
+        
+      
+      #Combine
+      if (i == 1) df_inhib_final2 <- df_inhib2
+      else df_inhib_final2 <- rbind(df_inhib2, df_inhib_final2)
+        
+      i = i +1
+      }
+    } 
+  }
+  
+  #Combine the Shuffled and real data
+  df_inhib_final2$Type <-  "Simulated" 
+  df$Type <-  "Real"
+  
+  df_inhib_combined2 <- rbind(df_inhib_final2, df)
+  
+  #Plot
+  Plot_inhib2 <- df_inhib_combined2 %>% 
+    ggplot(aes(Latency, color = Type)) + geom_density()
+  print(Plot_inhib2)
+  #Test
+  Test <- ks.test(df_inhib_final2$Latency, df$Latency)
+  print(Test)
+  
+  return(df_inhib_combined2)
+}
+```
+
+
+```{r}
+### Testing
+
+#There are some issues with sizes of two data frames sometimes not matching... Should be looked at..
+df_list_inhib <- list()
+for (i in 1:10){
+  Start <- Sys.time()
+  df_list_inhib[[i]] <- InhibitionModel(n = 100, mu_latency = 150, sd_latency = 15, mu_duration = 300, sd_duration = 100) %>% 
+    mutate(Group = i) %>% 
+    mutate(ID = ID*i)
+  End <- Sys.time()
+  print(End - Start)
+}
+
+
+#Bind all simulated data sets together
+Inhibition_Sim <- do.call("rbind", df_list_inhib)
+
+#Test
+InhibitionHypothesis(Inhibition_Sim)
+```
+
+
+
 

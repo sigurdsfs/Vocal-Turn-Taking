@@ -14,7 +14,7 @@
 # sd_duration: What is the uncertainity in the average call duration.
 
 
-ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
+ResetModel <- function(n, mu_latency, sd_latency, mu_duration, sd_duration){
   #Condition/warnings
   if ( any( n%%1 != 0 | n < 0 | length(n) != 1 )) stop("n should be an integer between 1:Infinity")
   if ( any( mu_latency%%1 != 0 | mu_latency < 0 | length(mu_latency) != 1)) stop("mu_latency should be an integer between 1:Infinity")
@@ -53,8 +53,8 @@ ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
     IOI_neigh$Onset <- IOI_focal$Offset + IOI_neigh$Interval
   }
   
-  IOI_neigh$Caller <- "Neighbor"
-  IOI_focal$Caller <- "Focal"
+  IOI_neigh$ID <- "Neighbor"
+  IOI_focal$ID <- "Focal"
   
   IOI <- rbind(IOI_neigh, IOI_focal)
   IOI <- IOI[order(IOI$Onset),]
@@ -63,9 +63,9 @@ ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
   step = 2
   while (TRUE) {
     
-    temp_prevNeigh <- filter(IOI, Caller == "Neighbor")[nrow(filter(IOI, Caller == "Neighbor")),] %>%
+    temp_prevNeigh <- filter(IOI, ID == "Neighbor")[nrow(filter(IOI, ID == "Neighbor")),] %>%
       mutate(Interval = rnorm(1, mu_latency, sd_latency))
-    temp_prevFocal <- filter(IOI, Caller == "Focal")[nrow(filter(IOI, Caller == "Focal")),] %>%
+    temp_prevFocal <- filter(IOI, ID == "Focal")[nrow(filter(IOI, ID == "Focal")),] %>%
       mutate(Interval = rnorm(1, mu_latency, sd_latency))
     
     if (IOI$Offset[nrow(IOI)] +  temp_prevFocal$Interval > IOI$Offset[nrow(IOI)] + temp_prevNeigh$Interval) {
@@ -81,7 +81,7 @@ ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
         temp_neigh$Offset <- temp_neigh$Onset + temp_neigh$Duration
         temp_neigh$Reset <- 0
       }
-      temp_neigh$Caller <- "Neighbor"
+      temp_neigh$ID <- "Neighbor"
       IOI <- rbind(IOI, temp_neigh)
       
     } else {
@@ -95,11 +95,11 @@ ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
         temp_focal$Offset <- temp_focal$Onset + temp_focal$Duration
         temp_focal$Reset <- 0
       }
-      temp_focal$Caller <- "Focal"
+      temp_focal$ID <- "Focal"
       IOI <- rbind(IOI, temp_focal)
     }
     
-    if ((nrow(filter(IOI, Caller == "Focal")) > n & nrow(filter(IOI, Caller == "Neighbor")) > n) | nrow(IOI) > (n*3)) {
+    if ((nrow(filter(IOI, ID == "Focal")) > n & nrow(filter(IOI, ID == "Neighbor")) > n) | nrow(IOI) > (n*3)) {
       break
     }
    
@@ -110,6 +110,7 @@ ResetHypothesis <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
   IOI <- mutate_at(IOI, vars(Onset, Offset), function(x) x - IOI$Latency[1])
   IOI$Latency[1] <- NA
   
+  IOI$CallNr <- 1 # We currently only have one round of communication per Group.
   #Force first Onset to 0.
   return(IOI)
 }
