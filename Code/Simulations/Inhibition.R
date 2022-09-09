@@ -87,11 +87,11 @@ InhibitionModel <- function(n, mu_latency, sd_latency, mu_duration, sd_duration)
   }
   #Final changes to the combined data
   data_neigh <- data_inhibition %>% 
-    select(starts_with("Neigh")) 
-    mutate(ID = "Neigh")
+    select(starts_with("Neigh")) %>% 
+    mutate(ID = 1)
   data_focal <- data_inhibition %>% 
     select(starts_with("Focal")) %>% 
-    mutate(ID = "Focal")
+    mutate(ID = 2)
   
   
   names(data_focal) <- gsub(pattern = "Focal*", replacement = "", x = names(data_focal))

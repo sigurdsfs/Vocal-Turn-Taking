@@ -2,12 +2,19 @@
 #### MODEL TESTING ####
 
 ############ Reset Hypothesis ############
-ResetHypothesis2 <- function(data){
+ResetHypothesis <- function(data){
   
-  data <- data %>% 
-    arrange(Group, CallNr, Onset) %>%
-    mutate(Interindividual = 0)
+  if (!"Group" %in% colnames(data) ){ #If we only have 1 group 
+    data <- data %>% 
+      arrange(CallNr, Onset) %>%
+      mutate(Interindividual = 0)
+  } 
   
+  else{  #Multiple groups
+    data <- data %>% 
+      arrange(Group, CallNr, Onset) %>%
+      mutate(Interindividual = 0)
+  }
   for(i in 2:nrow(data)){
     data[i,"Interindividual"] = ifelse(data$ID[i] == data$ID[i-1], 0, 1) #Check if inter- or intra-timing
   }
@@ -17,7 +24,7 @@ ResetHypothesis2 <- function(data){
   #plotting
   plot <- data %>% 
     filter(Latency != "NA") %>%
-    ggplot(aes(x = Latency, color = Interindividual)) + geom_density()
+    ggplot(aes(x = Latency, color = Interindividual)) + geom_density() + ggtitle("Density Plot of Latencies: Reset Hypothesis")
   print(plot)
   
   #Testing
@@ -36,53 +43,102 @@ ResetHypothesis2 <- function(data){
 
 InhibitionHypothesis <- function(df){
   i = 1
-  for (g in unique(df$Group)) {
-    
-    for (id in unique(df$ID[df$Group == g])){
+  #If Groups Do Not Exist
+  if (!"Group" %in% colnames(data)){
       
-      for (b in (unique(df$CallNr[df$Group == g & df$ID == id]))){
+    for (id in unique(df$ID)){
+      
+      for (b in (unique(df$CallNr[df$ID == id]))){
         
         #Whale1
-        whale1 <- subset(df, Group == g & ID == id & CallNr == b)
+        whale1 <- subset(df,ID == id & CallNr == b)
         
-        if (length(unique(whale1$CallNr))== 1){
+        if (length(unique(whale1$CallNr))== 1){ 
           #Whale 2
           whale2_INFO <- df %>% 
-            group_by(ID, Group) %>% 
+            group_by(ID) %>% 
             slice_sample()%>% 
-            filter(Group != g & ID != id) %>%
+            filter(ID != id) %>%
             ungroup() %>% 
             sample_n(1)
         }
         else{
           #Whale 2
           whale2_INFO <- df %>% 
-            group_by(ID, Group, CallNr) %>% 
+            group_by(ID, CallNr) %>% 
             slice_sample()%>% 
-            filter(Group != g & ID != id & CallNr != b) %>%
+            filter(ID != id & CallNr != b) %>%
             ungroup() %>% 
             sample_n(1)
         }
         
-        whale2 <- subset(df, Group == whale2_INFO$Group & ID == whale2_INFO$ID & CallNr == whale2_INFO$CallNr)
+        whale2 <- subset(df, ID == whale2_INFO$ID & CallNr == whale2_INFO$CallNr)
         
         df_inhib2 <- rbind(whale1,whale2) %>% 
           filter(Latency > 0.1) %>% 
-          arrange(Group, CallNr, Onset) %>% 
+          arrange(CallNr, Onset) %>% 
           mutate(Group = i) %>% 
           mutate(Latency = Onset - lag(Offset, 1))
-        
-        
-        
+      
         #Combine
         if (i == 1) df_inhib_final2 <- df_inhib2
         else df_inhib_final2 <- rbind(df_inhib2, df_inhib_final2)
         
         i = i +1
       }
-    } 
+    }
+    df <- df %>% #We need to have Group collumn to bind simulated data with original data
+      mutate(Group = 1)
   }
-  
+  #If Groups Exist
+  else{
+    for (g in unique(df$Group)) {
+      
+      for (id in unique(df$ID[df$Group == g])){
+        
+        for (b in (unique(df$CallNr[df$Group == g & df$ID == id]))){
+          
+          #Whale1
+          whale1 <- subset(df, Group == g & ID == id & CallNr == b)
+          
+          if (length(unique(whale1$CallNr))== 1){
+            #Whale 2
+            whale2_INFO <- df %>% 
+              group_by(ID, Group) %>% 
+              slice_sample()%>% 
+              filter(Group != g & ID != id) %>%
+              ungroup() %>% 
+              sample_n(1)
+          }
+          else{
+            #Whale 2
+            whale2_INFO <- df %>% 
+              group_by(ID, Group, CallNr) %>% 
+              slice_sample()%>% 
+              filter(Group != g & ID != id & CallNr != b) %>%
+              ungroup() %>% 
+              sample_n(1)
+          }
+          
+          whale2 <- subset(df, Group == whale2_INFO$Group & ID == whale2_INFO$ID & CallNr == whale2_INFO$CallNr)
+          
+          df_inhib2 <- rbind(whale1,whale2) %>% 
+            filter(Latency > 0.1) %>% 
+            arrange(Group, CallNr, Onset) %>% 
+            mutate(Group = i) %>% 
+            mutate(Latency = Onset - lag(Offset, 1))
+          
+          
+          
+          #Combine
+          if (i == 1) df_inhib_final2 <- df_inhib2
+          else df_inhib_final2 <- rbind(df_inhib2, df_inhib_final2)
+          
+          i = i + 1
+        }
+      } 
+    }
+  }
   #Combine the Shuffled and real data
   df_inhib_final2$Type <-  "Simulated" 
   df$Type <-  "Real"
@@ -91,7 +147,7 @@ InhibitionHypothesis <- function(df){
   
   #Plot
   Plot_inhib2 <- df_inhib_combined2 %>% 
-    ggplot(aes(Latency, color = Type)) + geom_density()
+    ggplot(aes(Latency, color = Type)) + geom_density() + ggtitle("Density Plot of Latencies: Inihibiton Hypothesis")
   print(Plot_inhib2)
   #Test
   Test <- ks.test(df_inhib_final2$Latency, df$Latency)

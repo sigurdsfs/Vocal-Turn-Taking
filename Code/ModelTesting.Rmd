@@ -8,6 +8,12 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+```{r}
+library(tidyverse)
+```
+
+
 # Introduction
 **Steps to follow:**
 \- Source/import all the Generative Models/Simulation function. They can all be found in the subfolder called "Simulations".
@@ -24,6 +30,11 @@ Latency: The difference between Onset and the previous calls Offset.
 (Duration): The duration of every call, can be found by Duration = Offset - Onset. Not required for all models but is very useful. 
 
 
+
+
+# Testing of Models
+
+## Testing Simulated Data
 ```{r}
 ### Testing Inhibiton
 
@@ -65,3 +76,106 @@ Reset_Sim <- do.call("rbind", df_list)
 ResetHypothesis2(Reset_Sim)
 
 ```
+
+
+
+
+## Testing Empirical Data
+
+#### Whale
+```{r}
+df_whale <- read_csv(here("Data", "PilotWhales_jensen.csv"))
+
+df_whale_small <- df_whale %>%
+  select(BoutLatency, BoutStartTime, BoutEndTime, Duration, bout,ID, Group) %>% 
+  rename(Latency = BoutLatency, Onset = BoutStartTime, Offset = BoutEndTime, CallNr = bout)
+```
+
+
+```{r}
+ResetHypothesis2(df_whale_small)
+```
+
+```{r}
+InhibitionHypothesis(df_whale_small)
+```
+
+#### Meerkats
+https://pubmed.ncbi.nlm.nih.gov/30416063/
+
+**TO DO**
+Get information on the variables. I need to know which variable is ID and which is CallNr (initiation of new communication)...
+
+```{r}
+library("readxl")
+df_Meerkat <- read_excel(here("Data", "Meerkats_demartsev.xlsx"))
+names(df_Meerkat) <- gsub(" ", "", names(df_Meerkat))
+names(df_Meerkat) <- gsub("#", "", names(df_Meerkat))
+
+df_Meerkat %>% 
+  select(starttime, endtime, Group, FocalID,infile) %>% 
+  rename(Onset = starttime, Offset = endtime) %>%
+
+
+unique(df_Meerkat$Group)
+unique(df_Meerkat$FocalID)
+```
+
+#### Wrens song
+**Questions**
+1) The current ID columns reports "male" or "female". Is it because we only have two birds, a female and a male? I am currently assuming ID (gender) acts a a unique identifier for each communicator. 
+
+2) I am currently saying that a latency of over 30 is viewed as initation a new conversation. 
+```{r}
+load(here("Data","wrens_song.rda"))
+wrens <- wrens %>%  
+  rename(Onset = start, Offset = end) %>% 
+  mutate(Latency = Onset - lag(Offset), Duration = Offset - Onset) %>% 
+  mutate(NewCall = if_else(Latency > 30 ,1 ,0)) %>%  #Is it one long recording or several small communique combined. 
+  mutate(CallNr = 1)
+wrens
+
+for (i in 2:nrow(wrens)){
+  if (wrens$NewCall[i] == 0){
+      wrens$CallNr[i] <- lag(wrens$CallNr)[i]
+  }
+  else{
+    wrens$CallNr[i] <- lag(wrens$CallNr)[i] + 1
+  }
+}
+
+ResetHypothesis(wrens)
+
+InhibitionHypothesis(wrens)
+
+```
+#### Manakins Song
+1) Only 1 pair communicating so we can't test Inhibition Hypothesis as this involves shuffling pairs. 
+2) Questions about the ID column again. 
+```{r}
+load(here("Data","manakins_song.rda"))
+manakins <- manakins %>%  
+  rename(Onset = start, Offset = end) %>% 
+  mutate(Latency = Onset - lag(Offset), Duration = Offset - Onset) %>% 
+  mutate(NewCall = if_else(Latency > 30 ,1 ,0)) %>%  #Is it one long recording or several small communique combined. 
+  mutate(CallNr = 1)
+
+ResetHypothesis(manakins)
+```
+#### Chickadees
+1) This is communication between a bird and an "audio recording of a bird". 
+
+2) Only 1 pair communicating so we can't test Inhibition Hypothesis as this involves shuffling pairs. 
+```{r}
+load(here("Data","chickadees_song.rda"))
+
+chickadees <- chickadees %>%  
+  rename(Onset = start, Offset = end) %>% 
+  mutate(Latency = Onset - lag(Offset), Duration = Offset - Onset) %>% 
+  mutate(NewCall = if_else(Latency > 30 ,1 ,0)) %>%  #Is it one long recording or several small communique combined. 
+  mutate(CallNr = 1)
+
+ResetHypothesis(chickadees)
+
+```
+
