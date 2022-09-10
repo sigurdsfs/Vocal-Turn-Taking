@@ -57,6 +57,8 @@ Inhibition_Sim <- do.call("rbind", df_list_inhib)
 
 #Test
 InhibitionHypothesis(Inhibition_Sim)
+
+ResetHypothesis(Inhibition_Sim)
 ```
 
 #### Reset Generative Model
@@ -75,7 +77,10 @@ for (i in 1:10){
 #Bind all simulated data sets together
 Reset_Sim <- do.call("rbind", df_list)
 
+#Testing
 ResetHypothesis(Reset_Sim)
+InhibitionHypothesis(Reset_Sim)
+
 
 ```
 
@@ -96,7 +101,7 @@ Arousal_Sim <- do.call("rbind", df_list)
 #Testing
 ResetHypothesis(Arousal_Sim)
 
-InhibitionHypothesis(Arousal_Sim) # Needs WORK CURRENTLY REQUIRE OFFSET / DURATION
+InhibitionHypothesis(mutate(Arousal_Sim, Offset = Onset)) # Assumes 0 duration calls. 
 ```
 
 

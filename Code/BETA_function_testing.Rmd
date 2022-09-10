@@ -2,8 +2,11 @@
 title: "R Notebook"
 output: html_notebook
 ---
-# Functions
+```{r}
+library(tidyverse)
+```
 
+# Functions
 
 ## Clean Data
 ```{r}
@@ -39,7 +42,7 @@ CleanData <- function(filename =filename, threshold=threshold){
   }
   
   ## Remove duplicates due to multiple recording devices
-  dups =NULL
+  dups = NULL
   for (i in 2:nrow(d)){
     
     if (d$bout[i]==d$bout[i-1] & d$WhaleID[i]==d$WhaleID[i-1] & d$StartTime[i] - d$StartTime[i-1] < 1 & d$Focal[i]!=d$Focal[i-1]){
@@ -294,5 +297,56 @@ InhibitionHypothesis(Inhibition_Sim)
 ```
 
 
+# Coupled Oscillators Hypothesis
+To test this, we measured the time interval of marmoset 2’s subsequent calls after each of marmoset 1’s calls.
 
+```{r}
+library("readxl")
+library(here)
+df_Meerkat <- read_excel(here("Data", "Meerkats_demartsev.xlsx"))
+names(df_Meerkat) <- gsub(" ", "", names(df_Meerkat))
+names(df_Meerkat) <- gsub("#", "", names(df_Meerkat))
+
+```
+
+```{r}
+Coupled_Oscilliator_Model<- function(df){
+  InterCallsIntervals <- NULL
+  for (g in unique(df$Group)){
+    for (b in unique(df$CallNr[df$Group == g])){
+    
+    Caller1 <- df$ID[df$CallNr==b & df$Group == g][1] #Identify the first caller
+    Calls1 <- df$Onset[df$CallNr==b & df$ID == Caller1 & df$Group == g] #All Caller1 calls. 
+    
+    if (length(df$ID[df$CallNr==b & df$ID != Caller1 & df$Group == g]>0)){ #All other calls in that specific Bout and Group not produced by Caller1. 
+      
+      for (call in Calls1){
+        #Intercall timings.
+        tempIntervals <- df$Onset[df$CallNr==b & df$ID != Caller1 & df$Group == g] - call
+        #Caller Info
+        tempCaller <- df$ID[df$CallNr==b & df$ID != Caller1 & df$Group == g] 
+        CallNr <- df$CallNr[df$CallNr==b & df$ID != Caller1 & df$Group == g]
+        FirstCall <- which(Calls1==call)
+        tempData <- data.frame(Intervals = tempIntervals, FirstCaller= Caller1, Caller=tempCaller, CallNr = CallNr, FirstCall=FirstCall, Group = g)
+        
+        tempData <- subset(tempData, Intervals > 0) #NOTE NOTE NOTE I AM NOT SURE WE SHOULD DO THIS IF WE WANNA LOOK AT CROSS-CORELATION. 
+        
+        if (exists("InterCallsIntervals")){
+          InterCallsIntervals = rbind(InterCallsIntervals,tempData)
+          } 
+        else {
+          InterCallsIntervals = tempData
+          }
+        }
+      }
+    }
+  }
+  
+  return(InterCallsIntervals)
+}
+
+temp <- Coupled_Oscilliator_Model(df_whale_small)
+
+
+```
 
