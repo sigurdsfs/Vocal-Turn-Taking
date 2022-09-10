@@ -44,8 +44,8 @@ ResetHypothesis <- function(data){
 InhibitionHypothesis <- function(df){
   i = 1
   #If Groups Do Not Exist
-  if (!"Group" %in% colnames(data)){
-      
+  if ("Group" %in% colnames(df) == FALSE){
+    print("No Groups")  
     for (id in unique(df$ID)){
       
       for (b in (unique(df$CallNr[df$ID == id]))){
@@ -92,6 +92,7 @@ InhibitionHypothesis <- function(df){
   }
   #If Groups Exist
   else{
+    print("Groups Exist")
     for (g in unique(df$Group)) {
       
       for (id in unique(df$ID[df$Group == g])){
